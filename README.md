@@ -14,9 +14,11 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 
 ## 📋 Prerequisites
 
-- **Operating System**: Ubuntu 22.04 LTS or later (tested on 24.04)
+- **Operating System**: Linux host with systemd (tested on Ubuntu 22.04+)
 - **Docker**: Docker Engine 24.0+ installed and running
 - **Ansible**: Ansible 2.14+ installed on the control node
+- **Ansible collections**: Install from `requirements.yml`
+- **htpasswd utility**: Required for HTTP Basic Auth file generation (e.g. `apache2-utils`)
 - **Root/Sudo access**: Required for systemd service management
 - **Network access**: Outbound internet access to pull Docker images
 
@@ -57,6 +59,30 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 | **Ironic Conductor** | Executes deployment tasks (scalable) | N/A |
 | **IPA Downloader** | Fetches Ironic Python Agent images | N/A |
 
+## 📁 Repository Layout (Current)
+
+The repository is organized around reusable Ansible roles and consolidated playbooks:
+
+```text
+.
+├── group_vars/all.yml
+├── requirements.yml
+├── playbooks/
+│   ├── deploy.yml
+│   ├── validate.yml
+│   ├── upgrade.yml
+│   └── destroy.yml
+└── roles/
+    ├── common
+    ├── mariadb
+    ├── rabbitmq
+    ├── ipa_downloader
+    ├── ironic_common
+    ├── ironic_http
+    ├── ironic_api
+    └── ironic_conductor
+```
+
 ## 🚀 Quick Start
 
 ### 1. Clone the Repository
@@ -66,21 +92,29 @@ git clone <repository-url>
 cd ironic-ansible
 ```
 
-### 2. Configure Variables
+### 2. Install Ansible Collections
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
+### 3. Configure Variables
 
 Edit `group_vars/all.yml` to customize your deployment:
 
 ```yaml
 # Change passwords for production!
 mariadb_password: "your_secure_password"
+mariadb_root_password: "your_root_password"
 rabbitmq_password: "your_rabbitmq_password"
 ironic_admin_password: "your_admin_password"
 
 # Optional: Change image versions
-ironic_image_tag: "2024.2"  # or "latest"
+ironic_image_repo: "quay.io/metal3-io"
+ironic_image_tag: "latest"  # or pin to a release tag (e.g. v34.0.0)
 ```
 
-### 3. Set Up Inventory
+### 4. Set Up Inventory
 
 Copy the example inventory:
 
@@ -95,14 +129,14 @@ Edit `inventory` to match your environment. For local deployment, the default is
 localhost ansible_connection=local
 ```
 
-### 4. Deploy Ironic
+### 5. Deploy Ironic
 
 ```bash
 # Run the deployment playbook
 ansible-playbook playbooks/deploy.yml -i inventory
 ```
 
-### 5. Verify Deployment
+### 6. Verify Deployment
 
 ```bash
 # Check service status
@@ -113,6 +147,9 @@ systemctl status ironic-conductor@group2
 
 # Test Ironic API
 curl -u admin:<ironic_admin_password> http://localhost:6385/v1/nodes
+
+# Optional: run validation checks directly
+ansible-playbook playbooks/validate.yml -i inventory
 ```
 
 ## 📖 Usage
@@ -136,7 +173,7 @@ curl -X POST -H "Content-Type: application/json" \
       "redfish_password": "<bmc-password>"
     },
     "boot_interface": "redfish-virtual-media",
-    "deploy_interface": "no-op",
+    "deploy_interface": "ramdisk",
     "network_interface": "noop",
     "inspect_interface": "agent"
   }' \
@@ -172,8 +209,10 @@ All configuration is centralized in `group_vars/all.yml`. Key sections:
 ### Container Images
 
 ```yaml
-ironic_image_repo: "metal3-io"
-ironic_image_tag: "2024.2"  # Pin specific version
+ironic_image_repo: "quay.io/metal3-io"
+ironic_image_tag: "latest"  # Pin a release tag for reproducibility
+mariadb_image: "mariadb:11.4"
+rabbitmq_image: "rabbitmq:3.13-management"
 ```
 
 ### Database (MariaDB)
@@ -201,10 +240,24 @@ ironic_api_bind_addr: "0.0.0.0"  # or "127.0.0.1" for local only
 ### Boot Interfaces
 
 ```yaml
-ironic_boot_interface: "redfish-virtual-media,redfish-https"
-ironic_deploy_interface: "no-op"
-ironic_network_interface: "noop"
-ironic_inspect_interface: "agent"
+ironic_enabled_boot_interfaces: "redfish-virtual-media,redfish-https"
+ironic_default_boot_interface: "redfish-virtual-media"
+ironic_enabled_deploy_interfaces: "direct,ramdisk"
+ironic_default_deploy_interface: "ramdisk"
+ironic_enabled_network_interfaces: "noop"
+ironic_default_network_interface: "noop"
+ironic_enabled_inspect_interfaces: "agent,no-inspect"
+ironic_default_inspect_interface: "agent"
+```
+
+### Conductor Groups
+
+```yaml
+ironic_conductor_groups:
+  - name: "group1"
+    workers: 4
+  - name: "group2"
+    workers: 4
 ```
 
 ## 🔐 Security Considerations
@@ -344,9 +397,9 @@ This will:
 ## 📚 References
 
 - [OpenStack Ironic Documentation](https://docs.openstack.org/ironic/latest/)
-- [Metal3 Docker Images](https://hub.docker.com/orgs/metal3-io)
+- [Metal3 Container Images (Quay)](https://quay.io/organization/metal3-io)
 - [Ironic Standalone Deployment](https://docs.openstack.org/ironic/latest/install/standalone.html)
-- [Redfish Virtual Media](https://www.dmtf.org/standards/redsif)
+- [Redfish Virtual Media](https://www.dmtf.org/standards/redfish)
 
 ## 🤝 Contributing
 
