@@ -15,12 +15,10 @@ ExecStartPre=-{{ docker_bin }} pull {{ rabbitmq_image }}
 ExecStart={{ docker_bin }} run --name {{ rabbitmq_container_name }} \
     --rm \
     --network {{ docker_network_name }} \
-    -e RABBITMQ_DEFAULT_USER={{ rabbitmq_user }} \
-    -e RABBITMQ_DEFAULT_PASS={{ rabbitmq_password }} \
-    -e RABBITMQ_DEFAULT_VHOST={{ rabbitmq_vhost }} \
+    --env-file {{ ironic_etc_dir }}/rabbitmq.env \
     -v {{ rabbitmq_data_dir }}:/var/lib/rabbitmq:z \
-    -p {{ rabbitmq_amqp_port }}:5672 \
-    -p {{ rabbitmq_management_port }}:15672 \
+    -p {{ rabbitmq_bind_addr }}:{{ rabbitmq_amqp_port }}:5672 \
+    -p {{ rabbitmq_bind_addr }}:{{ rabbitmq_management_port }}:15672 \
     {{ rabbitmq_image }}
 
 ExecStop={{ docker_bin }} stop {{ rabbitmq_container_name }}

@@ -1,7 +1,7 @@
 [Unit]
 Description=Ironic API Service
 Documentation=https://docs.openstack.org/ironic/latest/
-After=docker.service mariadb.service rabbitmq.service
+After=docker.service ironic-mariadb.service ironic-rabbitmq.service
 Requires=docker.service
 
 [Service]

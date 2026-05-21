@@ -1,0 +1,9 @@
+# Per-conductor instance configuration override
+# Loaded AFTER the main ironic.conf; values here take precedence.
+
+[DEFAULT]
+host = ironic-conductor-{{ item.name }}
+
+[conductor]
+workers_pool_size = {{ item.workers }}
+conductor_group = {{ item.name }}

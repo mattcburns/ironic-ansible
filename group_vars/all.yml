@@ -9,7 +9,9 @@
 # See: https://quay.io/organization/metal3-io
 
 ironic_image_repo: "quay.io/metal3-io"
-ironic_image_tag: "latest"  # Pin to a release tag (e.g. v34.0.0) for reproducibility
+# WARNING: Using "latest" will silently pull new versions on every service
+# restart. Pin to a release tag for production (e.g. "v34.0.0").
+ironic_image_tag: "latest"
 
 # -----------------------------------------------------------------------------
 # Docker / Container Runtime
@@ -38,6 +40,7 @@ mariadb_root_password: "ironic_root_password_here"    # CHANGE IN PRODUCTION
 
 mariadb_container_name: "ironic-mariadb"
 mariadb_port: 3306
+mariadb_bind_addr: "127.0.0.1"  # Containers use Docker network; host port is for debugging only
 mariadb_data_dir: "/var/lib/ironic/mariadb"
 
 # -----------------------------------------------------------------------------
@@ -53,6 +56,7 @@ rabbitmq_vhost: "/"
 
 rabbitmq_amqp_port: 5672
 rabbitmq_management_port: 15672
+rabbitmq_bind_addr: "127.0.0.1"  # Containers use Docker network; host port is for debugging only
 rabbitmq_data_dir: "/var/lib/ironic/rabbitmq"
 
 # -----------------------------------------------------------------------------
@@ -69,6 +73,8 @@ ironic_admin_password: "ironic_admin_password_here"   # CHANGE IN PRODUCTION
 
 # API bind address
 ironic_api_bind_addr: "0.0.0.0"
+# The public IP used in boot ISOs, IPA callback URLs, and conductor config.
+# On multi-homed hosts, override this to the IP reachable from the BMC/provisioning network.
 ironic_api_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn) }}"
 
 # -----------------------------------------------------------------------------
@@ -140,7 +146,10 @@ ironic_var_log_dir: "/var/log/ironic"
 ipa_base_url: "https://tarballs.opendev.org/openstack/ironic-python-agent/dib/files"
 ipa_images_directory: "{{ ironic_http_images_dir }}/ipa"
 
-# IPA images to download (standard DIB-built set)
+# IPA images to download.
+# WARNING: The default "master" images are continuously-updated upstream CI
+# builds and may change without notice. For production, use a stable release
+# branch (e.g. ipa-centos9-stable-2024.2.kernel / .initramfs).
 ipa_kernel_filename: "ipa-centos9-master.kernel"
 ipa_ramdisk_filename: "ipa-centos9-master.initramfs"
 
