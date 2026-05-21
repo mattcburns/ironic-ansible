@@ -15,12 +15,9 @@ ExecStartPre=-{{ docker_bin }} pull {{ mariadb_image }}
 ExecStart={{ docker_bin }} run --name {{ mariadb_container_name }} \
     --rm \
     --network {{ docker_network_name }} \
-    -e MYSQL_DATABASE={{ mariadb_database }} \
-    -e MYSQL_USER={{ mariadb_user }} \
-    -e MYSQL_PASSWORD={{ mariadb_password }} \
-    -e MYSQL_ROOT_PASSWORD={{ mariadb_root_password }} \
+    --env-file {{ ironic_etc_dir }}/mariadb.env \
     -v {{ mariadb_data_dir }}:/var/lib/mysql:z \
-    -p {{ mariadb_port }}:3306 \
+    -p {{ mariadb_bind_addr }}:{{ mariadb_port }}:3306 \
     {{ mariadb_image }}
 
 ExecStop={{ docker_bin }} stop {{ mariadb_container_name }}

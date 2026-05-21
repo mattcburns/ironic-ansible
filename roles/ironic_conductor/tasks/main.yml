@@ -1,4 +1,15 @@
 ---
+- name: Generate per-conductor config overrides
+  ansible.builtin.template:
+    src: conductor-override.conf.j2
+    dest: "{{ ironic_etc_dir }}/conductor-{{ item.name }}.conf"
+    mode: '0640'
+    owner: "{{ ironic_service_user }}"
+    group: "{{ ironic_service_group }}"
+  loop: "{{ ironic_conductor_groups }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: Deploy Ironic conductor systemd template unit
   ansible.builtin.template:
     src: ironic-conductor@.service.j2

@@ -1,7 +1,7 @@
 [Unit]
 Description=Ironic Conductor Service (Instance: %i)
 Documentation=https://docs.openstack.org/ironic/latest/
-After=docker.service mariadb.service rabbitmq.service ironic-api.service
+After=docker.service ironic-mariadb.service ironic-rabbitmq.service ironic-api.service
 Requires=docker.service
 
 [Service]
@@ -15,14 +15,15 @@ ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/ironic:{{ ironic_ima
 
 ExecStart={{ docker_bin }} run --name ironic-conductor-%i \
     --rm \
+    --hostname ironic-conductor-%i \
     --network {{ docker_network_name }} \
     -v {{ ironic_etc_dir }}/ironic.conf:/etc/ironic/ironic.conf:ro,z \
+    -v {{ ironic_etc_dir }}/conductor-%i.conf:/etc/ironic/conductor-override.conf:ro,z \
     -v {{ ironic_etc_dir }}/htpasswd:/etc/ironic/htpasswd:ro,z \
     -v {{ ironic_var_log_dir }}:/var/log/ironic:z \
     -v {{ ironic_http_images_dir }}:/shared/html:z \
-    -e IRONIC_CONDUCTOR_HOST=ironic-conductor-%i \
     {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
-    ironic-conductor
+    ironic-conductor --config-file /etc/ironic/ironic.conf --config-file /etc/ironic/conductor-override.conf
 
 ExecStop={{ docker_bin }} stop ironic-conductor-%i
 

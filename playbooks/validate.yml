@@ -8,8 +8,8 @@
       ansible.builtin.command: "systemctl is-active {{ item }}"
       register: service_checks
       loop:
-        - mariadb
-        - rabbitmq
+        - ironic-mariadb
+        - ironic-rabbitmq
         - ironic-api
         - ironic-http
       changed_when: false

@@ -56,6 +56,8 @@ ansible-playbook playbooks/deploy.yml -i inventory
 
 ```bash
 # Check all services are running
+systemctl status ironic-mariadb
+systemctl status ironic-rabbitmq
 systemctl status ironic-api
 systemctl status ironic-http
 systemctl status ironic-conductor@group1
@@ -85,7 +87,7 @@ curl -X POST \
       "redfish_password": "<BMC_PASS>"
     },
     "boot_interface": "redfish-virtual-media",
-    "deploy_interface": "no-op",
+    "deploy_interface": "ramdisk",
     "network_interface": "noop",
     "inspect_interface": "agent"
   }' \
@@ -168,8 +170,12 @@ ironic_http_port: 8081
 ```
 
 ### Permission denied on htpasswd
+The `common` role installs `apache2-utils` (Debian) or `httpd-tools` (RHEL)
+automatically. If you see this error, re-run the deploy playbook or install
+manually:
 ```bash
-sudo apt-get install apache2-utils  # For htpasswd command
+sudo apt-get install apache2-utils  # Debian/Ubuntu
+sudo yum install httpd-tools         # RHEL/CentOS
 ```
 
 ### Services not starting

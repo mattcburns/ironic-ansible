@@ -1,7 +1,7 @@
 [Unit]
 Description=Ironic API Service
 Documentation=https://docs.openstack.org/ironic/latest/
-After=docker.service mariadb.service rabbitmq.service
+After=docker.service ironic-mariadb.service ironic-rabbitmq.service
 Requires=docker.service
 
 [Service]
@@ -19,7 +19,7 @@ ExecStart={{ docker_bin }} run --name {{ ironic_api_container_name }} \
     -v {{ ironic_etc_dir }}/ironic.conf:/etc/ironic/ironic.conf:ro,z \
     -v {{ ironic_etc_dir }}/htpasswd:/etc/ironic/htpasswd:ro,z \
     -v {{ ironic_var_log_dir }}:/var/log/ironic:z \
-    -p {{ ironic_api_port }}:6385 \
+    -p {{ ironic_api_bind_addr }}:{{ ironic_api_port }}:6385 \
     {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
     ironic-api
 

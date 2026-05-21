@@ -140,6 +140,8 @@ ansible-playbook playbooks/deploy.yml -i inventory
 
 ```bash
 # Check service status
+systemctl status ironic-mariadb
+systemctl status ironic-rabbitmq
 systemctl status ironic-api
 systemctl status ironic-http
 systemctl status ironic-conductor@group1
@@ -271,19 +273,22 @@ ironic_conductor_groups:
 - `rabbitmq_password`
 - `ironic_admin_password`
 
+### Credential Storage
+
+MariaDB and RabbitMQ credentials are stored in env files under `/etc/ironic/` with
+mode `0600` (root-only). They are **not** embedded in the systemd unit files.
+
 ### Firewall Rules
 
-If deploying externally, consider:
+MariaDB (3306) and RabbitMQ (5672/15672) bind to `127.0.0.1` by default and are
+not exposed to the network. Only the Ironic API and HTTP server need external access:
 
 ```bash
 # Allow Ironic API
 ufw allow 6385/tcp
 
-# Allow HTTP server (for IPA images)
+# Allow HTTP server (for IPA images / virtual media boot ISOs)
 ufw allow 6180/tcp
-
-# Optional: Allow RabbitMQ management
-ufw allow 15672/tcp
 ```
 
 ### SSL/TLS

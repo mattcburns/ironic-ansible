@@ -7,6 +7,19 @@
   changed_when: false
   failed_when: docker_version.rc != 0
 
+- name: Install htpasswd utility (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: apache2-utils
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
+- name: Install htpasswd utility (RHEL/CentOS)
+  ansible.builtin.yum:
+    name: httpd-tools
+    state: present
+  when: ansible_os_family == 'RedHat'
+
 - name: Create Ironic service group
   ansible.builtin.group:
     name: "{{ ironic_service_group }}"
@@ -65,15 +78,17 @@
     driver: bridge
     state: present
 
-- name: Generate htpasswd file
-  ansible.builtin.shell: |
-    htpasswd -nbB {{ ironic_admin_username }} '{{ ironic_admin_password }}' > {{ ironic_etc_dir }}/htpasswd
-  args:
-    creates: "{{ ironic_etc_dir }}/htpasswd"
+- name: Generate htpasswd content
+  ansible.builtin.command: htpasswd -nbB {{ ironic_admin_username }} '{{ ironic_admin_password }}'
+  register: _htpasswd_content
+  changed_when: false
+  no_log: true
 
-- name: Set permissions for htpasswd file
-  ansible.builtin.file:
-    path: "{{ ironic_etc_dir }}/htpasswd"
+- name: Write htpasswd file
+  ansible.builtin.copy:
+    content: "{{ _htpasswd_content.stdout }}\n"
+    dest: "{{ ironic_etc_dir }}/htpasswd"
     owner: "{{ ironic_service_user }}"
     group: "{{ ironic_service_group }}"
     mode: '0640'
+    force: true
