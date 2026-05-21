@@ -1,8 +1,9 @@
 [Unit]
 Description=Ironic HTTP Server Service (IPA Images and Boot ISOs)
 Documentation=https://docs.openstack.org/ironic/latest/
-After=docker.service
+After=docker.service ipa-downloader.service
 Requires=docker.service
+Wants=ipa-downloader.service
 
 [Service]
 Type=simple
@@ -18,7 +19,7 @@ ExecStart={{ docker_bin }} run --name {{ ironic_http_container_name }} \
     --network {{ docker_network_name }} \
     -v {{ ironic_http_images_dir }}:/shared/html:ro,z \
     -e HTTP_PORT=8080 \
-    -p {{ ironic_http_port }}:8080 \
+    -p {{ ironic_http_bind_addr }}:{{ ironic_http_port }}:8080 \
     {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
     runhttpd
 

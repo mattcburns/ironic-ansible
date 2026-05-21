@@ -85,7 +85,7 @@ curl -X POST \
       "redfish_password": "<BMC_PASS>"
     },
     "boot_interface": "redfish-virtual-media",
-    "deploy_interface": "no-op",
+    "deploy_interface": "ramdisk",
     "network_interface": "noop",
     "inspect_interface": "agent"
   }' \

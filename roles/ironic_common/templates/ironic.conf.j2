@@ -39,11 +39,12 @@ enabled_power_interfaces = {{ ironic_enabled_power_interfaces }}
 enabled_raid_interfaces = {{ ironic_enabled_raid_interfaces }}
 
 [api]
-host_ip = 0.0.0.0
-port = 6385
+host_ip = {{ ironic_api_bind_addr }}
+port = {{ ironic_api_port }}
 
 [conductor]
 automated_clean = false
+inspect_wait_timeout = {{ ironic_inspect_timeout }}
 deploy_kernel = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_kernel_filename }}
 deploy_ramdisk = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_ramdisk_filename }}
 
