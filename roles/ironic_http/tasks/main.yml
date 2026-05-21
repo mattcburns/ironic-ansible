@@ -1,0 +1,23 @@
+---
+- name: Deploy Ironic HTTP systemd service
+  ansible.builtin.template:
+    src: ironic-http.service.j2
+    dest: /etc/systemd/system/ironic-http.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Ironic HTTP service
+  ansible.builtin.systemd:
+    name: ironic-http
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for Ironic HTTP server to be ready
+  ansible.builtin.wait_for:
+    port: "{{ ironic_http_port }}"
+    delay: 3
+    timeout: 60

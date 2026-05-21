@@ -1,0 +1,79 @@
+---
+# Common setup: prerequisites, user, directories, docker network, htpasswd
+
+- name: Verify Docker is installed
+  ansible.builtin.command: docker --version
+  register: docker_version
+  changed_when: false
+  failed_when: docker_version.rc != 0
+
+- name: Create Ironic service group
+  ansible.builtin.group:
+    name: "{{ ironic_service_group }}"
+    state: present
+    system: true
+
+- name: Create Ironic service user
+  ansible.builtin.user:
+    name: "{{ ironic_service_user }}"
+    group: "{{ ironic_service_group }}"
+    groups: docker
+    append: true
+    state: present
+    system: true
+    shell: /bin/false
+    create_home: false
+
+- name: Create data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ ironic_data_root }}"
+    - "{{ ironic_etc_dir }}"
+    - "{{ ironic_var_log_dir }}"
+    - "{{ ironic_http_images_dir }}"
+    - "{{ ipa_images_directory }}"
+
+- name: Create MariaDB data directory
+  ansible.builtin.file:
+    path: "{{ mariadb_data_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Create RabbitMQ data directory
+  ansible.builtin.file:
+    path: "{{ rabbitmq_data_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Set ownership for Ironic directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "{{ ironic_service_user }}"
+    group: "{{ ironic_service_group }}"
+    state: directory
+  loop:
+    - "{{ ironic_etc_dir }}"
+    - "{{ ironic_var_log_dir }}"
+    - "{{ ironic_http_images_dir }}"
+
+- name: Create Docker network
+  community.docker.docker_network:
+    name: "{{ docker_network_name }}"
+    driver: bridge
+    state: present
+
+- name: Generate htpasswd file
+  ansible.builtin.shell: |
+    htpasswd -nbB {{ ironic_admin_username }} '{{ ironic_admin_password }}' > {{ ironic_etc_dir }}/htpasswd
+  args:
+    creates: "{{ ironic_etc_dir }}/htpasswd"
+
+- name: Set permissions for htpasswd file
+  ansible.builtin.file:
+    path: "{{ ironic_etc_dir }}/htpasswd"
+    owner: "{{ ironic_service_user }}"
+    group: "{{ ironic_service_group }}"
+    mode: '0640'

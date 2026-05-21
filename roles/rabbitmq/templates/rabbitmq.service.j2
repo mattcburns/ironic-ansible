@@ -1,44 +1,32 @@
 [Unit]
 Description=Ironic RabbitMQ Message Queue Service
-Documentation=https://docs.openstack.org/ironic/latest/
 After=docker.service
 Requires=docker.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
+Type=simple
+Restart=on-failure
+RestartSec=10s
 
-# Run as unprivileged user
-User={{ ironic_service_user }}
-Group={{ ironic_service_group }}
+ExecStartPre=-{{ docker_bin }} stop {{ rabbitmq_container_name }}
+ExecStartPre=-{{ docker_bin }} rm {{ rabbitmq_container_name }}
+ExecStartPre=-{{ docker_bin }} pull {{ rabbitmq_image }}
 
-# Pull the latest image
-ExecStartPre=-{{ docker_bin }} pull {{ rabbitmq_image_repo }}:{{ rabbitmq_image_tag }}
-
-# Start the RabbitMQ container
-ExecStartPre=-{{ docker_bin }} rm -f {{ rabbitmq_container_name }}
 ExecStart={{ docker_bin }} run --name {{ rabbitmq_container_name }} \
-    -d \
-    --restart=always \
-    --network ironic-network \
+    --rm \
+    --network {{ docker_network_name }} \
     -e RABBITMQ_DEFAULT_USER={{ rabbitmq_user }} \
     -e RABBITMQ_DEFAULT_PASS={{ rabbitmq_password }} \
     -e RABBITMQ_DEFAULT_VHOST={{ rabbitmq_vhost }} \
     -v {{ rabbitmq_data_dir }}:/var/lib/rabbitmq:z \
     -p {{ rabbitmq_amqp_port }}:5672 \
     -p {{ rabbitmq_management_port }}:15672 \
-    {{ rabbitmq_image_repo }}:{{ rabbitmq_image_tag }}
+    {{ rabbitmq_image }}
 
-# Graceful shutdown
 ExecStop={{ docker_bin }} stop {{ rabbitmq_container_name }}
-ExecStopPost={{ docker_bin }} rm {{ rabbitmq_container_name }}
 
 TimeoutStartSec=120
 TimeoutStopSec=60
-
-# Security
-NoNewPrivileges=yes
-PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target

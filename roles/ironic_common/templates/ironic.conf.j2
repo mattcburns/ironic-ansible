@@ -1,0 +1,94 @@
+# {{ ansible_managed }}
+# =============================================================================
+# Ironic Configuration — Standalone Deployment
+# =============================================================================
+
+[DEFAULT]
+# Authentication
+{% if keystone_enabled %}
+auth_strategy = keystone
+{% else %}
+auth_strategy = {{ ironic_auth_strategy }}
+http_basic_auth_user_file = /etc/ironic/htpasswd
+{% endif %}
+
+# Logging
+debug = {{ 'true' if ironic_log_level == 'DEBUG' else 'false' }}
+log_dir = /var/log/ironic
+
+# Message transport (RabbitMQ)
+transport_url = rabbit://{{ rabbitmq_user }}:{{ rabbitmq_password }}@{{ rabbitmq_container_name }}:5672/{{ rabbitmq_vhost }}
+
+# Hardware types and interfaces
+enabled_hardware_types = {{ ironic_enabled_hardware_types }}
+
+enabled_boot_interfaces = {{ ironic_enabled_boot_interfaces }}
+default_boot_interface = {{ ironic_default_boot_interface }}
+
+enabled_deploy_interfaces = {{ ironic_enabled_deploy_interfaces }}
+default_deploy_interface = {{ ironic_default_deploy_interface }}
+
+enabled_network_interfaces = {{ ironic_enabled_network_interfaces }}
+default_network_interface = {{ ironic_default_network_interface }}
+
+enabled_inspect_interfaces = {{ ironic_enabled_inspect_interfaces }}
+default_inspect_interface = {{ ironic_default_inspect_interface }}
+
+enabled_management_interfaces = {{ ironic_enabled_management_interfaces }}
+enabled_power_interfaces = {{ ironic_enabled_power_interfaces }}
+enabled_raid_interfaces = {{ ironic_enabled_raid_interfaces }}
+
+[api]
+host_ip = 0.0.0.0
+port = 6385
+
+[conductor]
+automated_clean = false
+deploy_kernel = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_kernel_filename }}
+deploy_ramdisk = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_ramdisk_filename }}
+
+[database]
+connection = mysql+pymysql://{{ mariadb_user }}:{{ mariadb_password }}@{{ mariadb_container_name }}:3306/{{ mariadb_database }}?charset=utf8
+
+[deploy]
+http_url = http://{{ ironic_api_host }}:{{ ironic_http_port }}/
+http_root = /shared/html
+default_boot_option = local
+
+[dhcp]
+dhcp_provider = none
+
+[inspector]
+hooks = $default_hooks
+power_off = true
+extra_kernel_params =
+
+[redfish]
+use_swift = false
+
+[service_catalog]
+{% if keystone_enabled %}
+auth_url = {{ keystone_auth_url }}
+auth_type = password
+project_name = {{ keystone_project_name }}
+username = {{ keystone_username }}
+password = {{ keystone_password }}
+user_domain_name = {{ keystone_user_domain_name }}
+project_domain_name = {{ keystone_project_domain_name }}
+{% else %}
+auth_type = http_basic
+username = {{ ironic_admin_username }}
+password = {{ ironic_admin_password }}
+endpoint_override = http://{{ ironic_api_host }}:{{ ironic_api_port }}
+{% endif %}
+
+{% if keystone_enabled %}
+[keystone_authtoken]
+auth_url = {{ keystone_auth_url }}
+auth_type = password
+project_name = {{ keystone_project_name }}
+username = {{ keystone_username }}
+password = {{ keystone_password }}
+user_domain_name = {{ keystone_user_domain_name }}
+project_domain_name = {{ keystone_project_domain_name }}
+{% endif %}

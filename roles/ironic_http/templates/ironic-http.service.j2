@@ -1,43 +1,31 @@
 [Unit]
 Description=Ironic HTTP Server Service (IPA Images and Boot ISOs)
 Documentation=https://docs.openstack.org/ironic/latest/
-After=docker.service ironic-network.service
-Requires=docker.service ironic-network.service
+After=docker.service
+Requires=docker.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
+Type=simple
+Restart=on-failure
+RestartSec=10s
 
-# Run as unprivileged user
-User={{ ironic_service_user }}
-Group={{ ironic_service_group }}
+ExecStartPre=-{{ docker_bin }} stop {{ ironic_http_container_name }}
+ExecStartPre=-{{ docker_bin }} rm {{ ironic_http_container_name }}
+ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}
 
-# Pull the latest image
-ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/ironic-httpd:{{ ironic_image_tag }}
-
-# Ensure images directory exists
-ExecStartPre=-mkdir -p {{ ironic_http_images_dir }}
-
-# Start the Ironic HTTP container
-ExecStartPre=-{{ docker_bin }} rm -f {{ ironic_http_container_name }}
 ExecStart={{ docker_bin }} run --name {{ ironic_http_container_name }} \
-    -d \
-    --restart=always \
-    --network ironic-network \
-    -v {{ ironic_http_images_dir }}:/var/www/html:ro,z \
+    --rm \
+    --network {{ docker_network_name }} \
+    -v {{ ironic_http_images_dir }}:/shared/html:ro,z \
+    -e HTTP_PORT=8080 \
     -p {{ ironic_http_port }}:8080 \
-    {{ ironic_image_repo }}/ironic-httpd:{{ ironic_image_tag }}
+    {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
+    runhttpd
 
-# Graceful shutdown
 ExecStop={{ docker_bin }} stop {{ ironic_http_container_name }}
-ExecStopPost={{ docker_bin }} rm {{ ironic_http_container_name }}
 
 TimeoutStartSec=60
 TimeoutStopSec=30
-
-# Security
-NoNewPrivileges=yes
-PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target

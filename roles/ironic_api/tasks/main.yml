@@ -1,0 +1,23 @@
+---
+- name: Deploy Ironic API systemd service
+  ansible.builtin.template:
+    src: ironic-api.service.j2
+    dest: /etc/systemd/system/ironic-api.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Ironic API service
+  ansible.builtin.systemd:
+    name: ironic-api
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for Ironic API to be ready
+  ansible.builtin.wait_for:
+    port: "{{ ironic_api_port }}"
+    delay: 5
+    timeout: 120

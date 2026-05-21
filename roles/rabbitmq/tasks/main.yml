@@ -1,0 +1,23 @@
+---
+- name: Deploy RabbitMQ systemd service
+  ansible.builtin.template:
+    src: rabbitmq.service.j2
+    dest: /etc/systemd/system/rabbitmq.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start RabbitMQ service
+  ansible.builtin.systemd:
+    name: rabbitmq
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for RabbitMQ to be ready
+  ansible.builtin.wait_for:
+    port: "{{ rabbitmq_amqp_port }}"
+    delay: 5
+    timeout: 120

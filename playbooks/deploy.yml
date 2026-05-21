@@ -1,18 +1,49 @@
 ---
 # Main deployment playbook for Standalone Ironic
-# This playbook orchestrates the complete deployment of Ironic with Docker and systemd.
 
-- name: Include setup variables
-  ansible.builtin.import_playbook: setup.yml
+- name: Setup Prerequisites
+  hosts: ironic
+  become: true
+  gather_facts: true
+  roles:
+    - role: common
 
-- name: Deploy Ironic Infrastructure
-  ansible.builtin.import_playbook: ironic-deploy.yml
+- name: Deploy Infrastructure Services
+  hosts: ironic
+  become: true
+  gather_facts: true
+  roles:
+    - role: mariadb
+    - role: rabbitmq
 
-- name: Validate Ironic Deployment
+- name: Deploy IPA Images
+  hosts: ironic
+  become: true
+  gather_facts: true
+  roles:
+    - role: ipa_downloader
+
+- name: Deploy Ironic Configuration and Schema
+  hosts: ironic
+  become: true
+  gather_facts: true
+  roles:
+    - role: ironic_common
+
+- name: Deploy Ironic Services
+  hosts: ironic
+  become: true
+  gather_facts: true
+  roles:
+    - role: ironic_http
+    - role: ironic_api
+    - role: ironic_conductor
+
+- name: Validate Deployment
   ansible.builtin.import_playbook: validate.yml
 
 - name: Display Deployment Summary
-  hosts: localhost
+  hosts: ironic
   gather_facts: false
   tasks:
     - name: Show deployment summary
@@ -27,9 +58,5 @@
           - "RabbitMQ: localhost:{{ rabbitmq_amqp_port }}"
           - "RabbitMQ Management: http://localhost:{{ rabbitmq_management_port }}"
           - "============================================"
-          - "Next Steps:"
-          - "1. Test the API: curl -u admin:{{ ironic_admin_password }} http://{{ ironic_api_host }}:{{ ironic_api_port }}/v1/nodes"
-          - "2. Add a bare metal node using the Ironic API"
-          - "3. Upload a deployment ISO to {{ ironic_http_images_dir }}"
-          - "4. Use Redfish virtual media to boot the node"
+          - "Test: curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ ironic_api_port }}/v1/nodes"
           - "============================================"

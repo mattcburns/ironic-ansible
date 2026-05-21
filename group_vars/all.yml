@@ -1,25 +1,26 @@
 # =============================================================================
 # Global Variables for Standalone Ironic Deployment
 # =============================================================================
-# This file defines all configuration variables for the Ironic deployment.
-# Modify these values to customize your deployment.
-# =============================================================================
 
 # -----------------------------------------------------------------------------
 # Container Image Configuration
 # -----------------------------------------------------------------------------
-# All images are pulled from the official metal3-io project on Docker Hub.
-# Pin specific versions for reproducible deployments.
-# Reference: https://hub.docker.com/orgs/metal3-io
+# Metal3-io images are published to quay.io.
+# See: https://quay.io/organization/metal3-io
 
-ironic_image_repo: "metal3-io"
-ironic_image_tag: "2024.2"  # 2024.2 (Zed) or latest stable release
+ironic_image_repo: "quay.io/metal3-io"
+ironic_image_tag: "latest"  # Pin to a release tag (e.g. v34.0.0) for reproducibility
+
+# -----------------------------------------------------------------------------
+# Docker / Container Runtime
+# -----------------------------------------------------------------------------
+
+docker_bin: "/usr/bin/docker"
+docker_network_name: "ironic-network"
 
 # -----------------------------------------------------------------------------
 # Service Account Configuration
 # -----------------------------------------------------------------------------
-# Systemd services will run Docker containers under this unprivileged user.
-# This user should be created before the playbook runs.
 
 ironic_service_user: "ironic"
 ironic_service_group: "ironic"
@@ -27,43 +28,31 @@ ironic_service_group: "ironic"
 # -----------------------------------------------------------------------------
 # MariaDB Configuration
 # -----------------------------------------------------------------------------
-# MariaDB provides persistent storage for Ironic's conductor database.
-# Credentials should be changed in production.
 
-mariadb_image_repo: "mariadb"
-mariadb_image_tag: "11.4"  # Latest stable LTS
+mariadb_image: "mariadb:11.4"
 
 mariadb_database: "ironic"
 mariadb_user: "ironic"
-mariadb_password: "ironic_secure_password_here"  # CHANGE THIS IN PRODUCTION
-mariadb_root_password: "ironic_root_password_here"  # CHANGE THIS IN PRODUCTION
+mariadb_password: "ironic_secure_password_here"      # CHANGE IN PRODUCTION
+mariadb_root_password: "ironic_root_password_here"    # CHANGE IN PRODUCTION
 
-# Database container settings
 mariadb_container_name: "ironic-mariadb"
 mariadb_port: 3306
-
-# Data persistence
 mariadb_data_dir: "/var/lib/ironic/mariadb"
 
 # -----------------------------------------------------------------------------
 # RabbitMQ Configuration
 # -----------------------------------------------------------------------------
-# RabbitMQ provides message queuing between Ironic API and conductors.
-# Credentials should be changed in production.
 
-rabbitmq_image_repo: "rabbitmq"
-rabbitmq_image_tag: "3.13-management"  # Includes management UI at :15672
+rabbitmq_image: "rabbitmq:3.13-management"
 
 rabbitmq_container_name: "ironic-rabbitmq"
 rabbitmq_user: "ironic"
-rabbitmq_password: "ironic_rabbitmq_password_here"  # CHANGE THIS IN PRODUCTION
+rabbitmq_password: "ironic_rabbitmq_password_here"    # CHANGE IN PRODUCTION
 rabbitmq_vhost: "/"
 
-# RabbitMQ ports
 rabbitmq_amqp_port: 5672
 rabbitmq_management_port: 15672
-
-# Data persistence
 rabbitmq_data_dir: "/var/lib/ironic/rabbitmq"
 
 # -----------------------------------------------------------------------------
@@ -71,97 +60,74 @@ rabbitmq_data_dir: "/var/lib/ironic/rabbitmq"
 # -----------------------------------------------------------------------------
 
 ironic_api_container_name: "ironic-api"
-ironic_api_port: 6385  # Default Ironic API port
+ironic_api_port: 6385
 
-# Authentication method (Phase 1: http_basic, Phase 11: keystone)
-ironic_authentication_method: "http_basic"
+# Authentication
+ironic_auth_strategy: "http_basic"
+ironic_admin_username: "admin"
+ironic_admin_password: "ironic_admin_password_here"   # CHANGE IN PRODUCTION
 
-# HTTP Basic Auth credentials (htpasswd)
-# These credentials protect the Ironic API endpoint.
-ironic_admin_password: "ironic_admin_password_here"  # CHANGE THIS IN PRODUCTION
-
-# API bind address (0.0.0.0 for external access, 127.0.0.1 for localhost only)
+# API bind address
 ironic_api_bind_addr: "0.0.0.0"
-ironic_api_host: "{{ ansible_fqdn }}"
-
-# CORS settings (optional, for web-based clients)
-ironic_enable_cors: false
+ironic_api_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn) }}"
 
 # -----------------------------------------------------------------------------
 # Ironic HTTP Server Configuration
 # -----------------------------------------------------------------------------
-# The HTTP server serves IPA images and boot ISOs for virtual media.
 
 ironic_http_container_name: "ironic-http"
-ironic_http_port: 6180  # Custom port to avoid conflicts
-
-# Directory where IPA images and ISOs will be stored
-ironic_http_images_dir: "/var/lib/ironic/http-images"
-
-# HTTP server bind address
+ironic_http_port: 6180
 ironic_http_bind_addr: "0.0.0.0"
+ironic_http_images_dir: "/var/lib/ironic/http-images"
 
 # -----------------------------------------------------------------------------
 # Ironic Conductor Configuration
 # -----------------------------------------------------------------------------
-# Conductors are scaled using systemd unit templates.
-# Each conductor group can target specific nodes or workloads.
 
-# Template for conductor service files
-ironic_conductor_service_template: "ironic-conductor@.service"
-
-# Default conductor groups (can be extended)
 ironic_conductor_groups:
   - name: "group1"
-    workers: 4  # Number of worker processes per conductor
+    workers: 4
   - name: "group2"
     workers: 4
 
-# Conductor database replica (optional, for read scaling)
-ironic_conductor_replicas: 0
-
 # -----------------------------------------------------------------------------
-# Ironic Configuration Settings
+# Ironic Driver & Interface Configuration
 # -----------------------------------------------------------------------------
 
-# Deployment mode
-ironic_deployment_mode: "standalone"
+ironic_enabled_hardware_types: "ipmi,redfish"
 
-# Deploy interface
-ironic_deploy_interface: "no-op"  # We use external ISOs for deployment
+# Boot: virtual media primary, HTTPS boot secondary
+ironic_enabled_boot_interfaces: "redfish-virtual-media,redfish-https"
+ironic_default_boot_interface: "redfish-virtual-media"
 
-# Boot interfaces (Virtual Media and HTTP Boot)
-ironic_boot_interface: "redfish-virtual-media,redfish-https"
+# Deploy: ramdisk for virtual media based ISO boot
+ironic_enabled_deploy_interfaces: "direct,ramdisk"
+ironic_default_deploy_interface: "ramdisk"
 
-# Network interface
-ironic_network_interface: "noop"  # No network provisioning needed
+# Network: noop for standalone (no Neutron)
+ironic_enabled_network_interfaces: "noop"
+ironic_default_network_interface: "noop"
 
-# Inspect interface (Built-in agent inspection)
-ironic_inspect_interface: "agent"
+# Inspect: agent-based inspection
+ironic_enabled_inspect_interfaces: "agent,no-inspect"
+ironic_default_inspect_interface: "agent"
 
-# Driver (Redfish support)
-ironic_driver: "ipmi,redfish"
+# Management & Power
+ironic_enabled_management_interfaces: "ipmitool,redfish,noop"
+ironic_enabled_power_interfaces: "ipmitool,redfish"
 
-# Conductor group (for API-conductor communication)
-ironic_conductor_group: "default"
+# RAID
+ironic_enabled_raid_interfaces: "agent,no-raid"
 
 # -----------------------------------------------------------------------------
-# Inspection Configuration (Built-in Agent Inspection)
+# Inspection Configuration
 # -----------------------------------------------------------------------------
-# The agent inspect interface is built into Ironic since 2023.2 (Bobcat).
-# No separate ironic-inspector service is needed.
 
-# Inspector API settings (enabled within the main Ironic service)
-ironic_inspector_listen_port: 5050
-ironic_inspector_bind_host: "0.0.0.0"
-
-# Inspection timeout (seconds)
 ironic_inspect_timeout: 3600
 
 # -----------------------------------------------------------------------------
 # Storage Paths
 # -----------------------------------------------------------------------------
-# All Ironic data will be stored under this root directory.
 
 ironic_data_root: "/var/lib/ironic"
 ironic_etc_dir: "/etc/ironic"
@@ -170,23 +136,19 @@ ironic_var_log_dir: "/var/log/ironic"
 # -----------------------------------------------------------------------------
 # IPA (Ironic Python Agent) Configuration
 # -----------------------------------------------------------------------------
-# IPA images are fetched from the official metal3-io repository.
 
-ipa_image_url: "https://storage.googleapis.com/opendev.org/x/project-openstack/openstack-ironic-ipa-qemustable"
+ipa_base_url: "https://tarballs.opendev.org/openstack/ironic-python-agent/dib/files"
 ipa_images_directory: "{{ ironic_http_images_dir }}/ipa"
 
-# IPA images to download (standard set)
-ipa_images:
-  - "ironic-python-agent.iso"
-  - "ironic-python-agent.kernel"
-  - "ironic-python-agent.ramdisk"
-  - "ironic-python-agent.vmlinuz"
-  - "ironic-python-agentinitramfs"
+# IPA images to download (standard DIB-built set)
+ipa_kernel_filename: "ipa-centos9-master.kernel"
+ipa_ramdisk_filename: "ipa-centos9-master.initramfs"
+
+ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
 
 # -----------------------------------------------------------------------------
-# Security & SSL/TLS (Optional)
+# SSL/TLS (Optional)
 # -----------------------------------------------------------------------------
-# For production deployments, enable SSL/TLS for Ironic API and HTTP server.
 
 ironic_enable_ssl: false
 ironic_ssl_cert_path: ""
@@ -196,37 +158,12 @@ ironic_ssl_key_path: ""
 # Logging Configuration
 # -----------------------------------------------------------------------------
 
-ironic_log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
-ironic_log_file: "{{ ironic_var_log_dir }}/ironic.log"
-
-# Systemd service logging
-ironic_syslog_identifier: "ironic"
-ironic_syslog_facility: "LOCAL0"
+ironic_log_level: "INFO"
+ironic_log_dir: "{{ ironic_var_log_dir }}"
 
 # -----------------------------------------------------------------------------
-# Docker Configuration
+# Future Keystone Integration
 # -----------------------------------------------------------------------------
-
-# Docker socket path (for host Docker daemon)
-docker_socket_path: "/var/run/docker.sock"
-
-# Docker volume driver
-docker_volume_driver: "local"
-
-# -----------------------------------------------------------------------------
-# Host Configuration
-# -----------------------------------------------------------------------------
-
-# Hostname override (useful for testing)
-# ironic_hostname: "ironic.example.com"
-
-# Network interface for Ironic API (optional)
-# ironic_network_interface_host: "eth0"
-
-# -----------------------------------------------------------------------------
-# Future Keystone Integration (Phase 11)
-# -----------------------------------------------------------------------------
-# These variables are prepared for future Keystone authentication integration.
 
 keystone_enabled: false
 keystone_auth_url: ""

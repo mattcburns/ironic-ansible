@@ -1,53 +1,49 @@
 ---
-# Upgrade playbook for Ironic deployment
-# This playbook updates all services to the latest configured image tags.
-
-- name: Stop Ironic Services
-  hosts: localhost
+- name: Stop Ironic Services for Upgrade
+  hosts: ironic
   become: true
   gather_facts: true
   tasks:
-    - name: Stop all Ironic services
+    - name: Stop conductor instances
+      ansible.builtin.systemd:
+        name: "ironic-conductor@{{ item.name }}"
+        state: stopped
+      loop: "{{ ironic_conductor_groups }}"
+      loop_control:
+        label: "{{ item.name }}"
+      ignore_errors: true
+
+    - name: Stop core services
       ansible.builtin.systemd:
         name: "{{ item }}"
         state: stopped
-        daemon_reload: true
       loop:
         - ironic-api
         - ironic-http
-        - ironic-network
       ignore_errors: true
 
-- name: Upgrade Dependencies
-  ansible.builtin.import_playbook: ironic-deploy.yml
+- name: Upgrade Configuration and Schema
+  hosts: ironic
+  become: true
+  gather_facts: true
+  roles:
+    - role: ironic_common
 
-- name: Start Ironic Services
-  hosts: localhost
+- name: Upgrade IPA Images
+  hosts: ironic
+  become: true
+  gather_facts: true
+  roles:
+    - role: ipa_downloader
+
+- name: Restart Ironic Services
+  hosts: ironic
   become: true
   gather_facts: false
-  tasks:
-    - name: Start all Ironic services
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        state: started
-        enabled: true
-        daemon_reload: true
-      loop:
-        - ironic-network
-        - ironic-http
-        - ironic-api
-      ignore_errors: true
+  roles:
+    - role: ironic_http
+    - role: ironic_api
+    - role: ironic_conductor
 
-- name: Display Upgrade Summary
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Show upgrade summary
-      ansible.builtin.debug:
-        msg:
-          - "============================================"
-          - "Ironic Upgrade Complete!"
-          - "============================================"
-          - "Upgraded to: {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
-          - "Services restarted and running"
-          - "============================================"
+- name: Validate Upgrade
+  ansible.builtin.import_playbook: validate.yml

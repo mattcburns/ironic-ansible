@@ -1,30 +1,38 @@
 ---
-# Destroy playbook for Ironic deployment
-# This playbook removes all Ironic services and cleans up data.
-
 - name: Stop All Ironic Services
-  hosts: localhost
+  hosts: ironic
   become: true
   gather_facts: true
   tasks:
-    - name: Stop Ironic services
+    - name: Stop conductor instances
+      ansible.builtin.systemd:
+        name: "ironic-conductor@{{ item.name }}"
+        state: stopped
+        enabled: false
+      loop: "{{ ironic_conductor_groups }}"
+      loop_control:
+        label: "{{ item.name }}"
+      ignore_errors: true
+
+    - name: Stop and disable all services
       ansible.builtin.systemd:
         name: "{{ item }}"
         state: stopped
         enabled: false
-        daemon_reload: true
       loop:
         - ironic-api
         - ironic-http
-        - ironic-conductor@group1
-        - ironic-conductor@group2
         - ipa-downloader
         - mariadb
         - rabbitmq
-        - ironic-network
       ignore_errors: true
 
-    - name: Remove Ironic service files
+- name: Remove Service Files and Containers
+  hosts: ironic
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Remove systemd service files
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
@@ -35,37 +43,41 @@
         - /etc/systemd/system/ipa-downloader.service
         - /etc/systemd/system/mariadb.service
         - /etc/systemd/system/rabbitmq.service
-        - /etc/systemd/system/ironic-network.service
-      ignore_errors: true
 
     - name: Reload systemd
       ansible.builtin.systemd:
         daemon_reload: true
 
-- name: Remove Docker Containers
-  hosts: localhost
-  become: true
-  gather_facts: false
-  tasks:
-    - name: Stop and remove all Ironic containers
-      community.docker.docker_container:
-        name: "{{ item }}"
-        state: absent
-        force_kill: true
+    - name: Remove infrastructure containers
+      ansible.builtin.command: "{{ docker_bin }} rm -f {{ item }}"
       loop:
-        - ironic-api
-        - ironic-http
-        - ironic-conductor-group1
-        - ironic-conductor-group2
-        - ironic-mariadb
-        - ironic-rabbitmq
+        - "{{ ironic_api_container_name }}"
+        - "{{ ironic_http_container_name }}"
+        - "{{ mariadb_container_name }}"
+        - "{{ rabbitmq_container_name }}"
+      ignore_errors: true
+      changed_when: true
 
-- name: Remove Data Directories
-  hosts: localhost
+    - name: Remove conductor containers
+      ansible.builtin.command: "{{ docker_bin }} rm -f ironic-conductor-{{ item.name }}"
+      loop: "{{ ironic_conductor_groups }}"
+      loop_control:
+        label: "{{ item.name }}"
+      ignore_errors: true
+      changed_when: true
+
+    - name: Remove Docker network
+      community.docker.docker_network:
+        name: "{{ docker_network_name }}"
+        state: absent
+      ignore_errors: true
+
+- name: Remove Data and User
+  hosts: ironic
   become: true
   gather_facts: false
   tasks:
-    - name: Remove Ironic data directories
+    - name: Remove data directories
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
@@ -73,9 +85,9 @@
         - "{{ ironic_data_root }}"
         - "{{ ironic_etc_dir }}"
         - "{{ ironic_var_log_dir }}"
-      ignore_errors: true
+        - "{{ ipa_downloader_script_path | dirname }}"
 
-    - name: Remove service user and group
+    - name: Remove service user
       ansible.builtin.user:
         name: "{{ ironic_service_user }}"
         state: absent
@@ -88,18 +100,6 @@
         state: absent
       ignore_errors: true
 
-- name: Display Cleanup Summary
-  hosts: localhost
-  gather_facts: false
-  tasks:
     - name: Show cleanup summary
       ansible.builtin.debug:
-        msg:
-          - "============================================"
-          - "Ironic Deployment Destroyed!"
-          - "============================================"
-          - "All services stopped and removed"
-          - "All containers removed"
-          - "All data directories removed"
-          - "To redeploy, run: ansible-playbook playbooks/deploy.yml"
-          - "============================================"
+        msg: "Ironic deployment destroyed. Redeploy with: ansible-playbook playbooks/deploy.yml -i inventory"

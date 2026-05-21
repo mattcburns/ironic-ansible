@@ -1,0 +1,21 @@
+---
+# Deploy ironic.conf and initialize the database schema
+
+- name: Deploy Ironic configuration file
+  ansible.builtin.template:
+    src: ironic.conf.j2
+    dest: "{{ ironic_etc_dir }}/ironic.conf"
+    mode: '0640'
+    owner: "{{ ironic_service_user }}"
+    group: "{{ ironic_service_group }}"
+    backup: true
+
+- name: Run Ironic database schema migration
+  ansible.builtin.command: >
+    {{ docker_bin }} run --rm
+    --network {{ docker_network_name }}
+    -v {{ ironic_etc_dir }}/ironic.conf:/etc/ironic/ironic.conf:ro,z
+    {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}
+    ironic-dbsync upgrade
+  register: dbsync_result
+  changed_when: "'upgrade' in dbsync_result.stdout or dbsync_result.rc == 0"

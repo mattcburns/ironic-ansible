@@ -1,44 +1,32 @@
 [Unit]
 Description=Ironic MariaDB Database Service
-Documentation=https://docs.openstack.org/ironic/latest/
 After=docker.service
 Requires=docker.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
+Type=simple
+Restart=on-failure
+RestartSec=10s
 
-# Run as unprivileged user (created by setup role)
-User={{ ironic_service_user }}
-Group={{ ironic_service_group }}
+ExecStartPre=-{{ docker_bin }} stop {{ mariadb_container_name }}
+ExecStartPre=-{{ docker_bin }} rm {{ mariadb_container_name }}
+ExecStartPre=-{{ docker_bin }} pull {{ mariadb_image }}
 
-# Pull the latest image
-ExecStartPre=-{{ docker_bin }} pull {{ mariadb_image_repo }}:{{ mariadb_image_tag }}
-
-# Start the MariaDB container
-ExecStartPre=-{{ docker_bin }} rm -f {{ mariadb_container_name }}
 ExecStart={{ docker_bin }} run --name {{ mariadb_container_name }} \
-    -d \
-    --restart=always \
-    --network ironic-network \
+    --rm \
+    --network {{ docker_network_name }} \
     -e MYSQL_DATABASE={{ mariadb_database }} \
     -e MYSQL_USER={{ mariadb_user }} \
     -e MYSQL_PASSWORD={{ mariadb_password }} \
     -e MYSQL_ROOT_PASSWORD={{ mariadb_root_password }} \
     -v {{ mariadb_data_dir }}:/var/lib/mysql:z \
     -p {{ mariadb_port }}:3306 \
-    {{ mariadb_image_repo }}:{{ mariadb_image_tag }}
+    {{ mariadb_image }}
 
-# Graceful shutdown
 ExecStop={{ docker_bin }} stop {{ mariadb_container_name }}
-ExecStopPost={{ docker_bin }} rm {{ mariadb_container_name }}
 
 TimeoutStartSec=120
 TimeoutStopSec=60
-
-# Security
-NoNewPrivileges=yes
-PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target

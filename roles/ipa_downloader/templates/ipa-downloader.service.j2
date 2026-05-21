@@ -1,6 +1,5 @@
 [Unit]
-Description=Ironic IPA Downloader Service
-Documentation=https://docs.openstack.org/ironic/latest/
+Description=Ironic IPA Image Downloader
 After=network-online.target
 Wants=network-online.target
 
@@ -8,25 +7,15 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 
-# Run as root (needs to write to shared storage)
-User=root
-Group=root
+Environment=IPA_BASE_URL={{ ipa_base_url }}
+Environment=IPA_IMAGES_DIR={{ ipa_images_directory }}
+Environment=IPA_KERNEL={{ ipa_kernel_filename }}
+Environment=IPA_RAMDISK={{ ipa_ramdisk_filename }}
 
-# Create IPA images directory
-ExecStartPre=-mkdir -p {{ ipa_images_directory }}
-
-# Download IPA images from metal3-io
 ExecStart={{ ipa_downloader_script_path }}
 
-# Set permissions for HTTP server
-ExecStartPost={{ chmod_command }} {{ ipa_images_directory }}
-
-TimeoutStartSec=300
+TimeoutStartSec=600
 TimeoutStopSec=10
-
-# Security
-NoNewPrivileges=yes
-PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target

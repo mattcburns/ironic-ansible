@@ -1,95 +1,58 @@
 ---
-# Validation playbook for Ironic deployment
-# This playbook validates that all services are running and healthy.
-
 - name: Validate Ironic Deployment
-  hosts: localhost
+  hosts: ironic
   become: true
-  gather_facts: true
-
+  gather_facts: false
   tasks:
-    - name: Check MariaDB service status
-      ansible.builtin.systemd:
-        name: mariadb
-        state: started
-      register: mariadb_status
+    - name: Check service status
+      ansible.builtin.command: "systemctl is-active {{ item }}"
+      register: service_checks
+      loop:
+        - mariadb
+        - rabbitmq
+        - ironic-api
+        - ironic-http
+      changed_when: false
       failed_when: false
 
-    - name: Check RabbitMQ service status
-      ansible.builtin.systemd:
-        name: rabbitmq
-        state: started
-      register: rabbitmq_status
+    - name: Check conductor service status
+      ansible.builtin.command: "systemctl is-active ironic-conductor@{{ item.name }}"
+      register: conductor_checks
+      loop: "{{ ironic_conductor_groups }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: false
       failed_when: false
 
-    - name: Check Ironic API service status
-      ansible.builtin.systemd:
-        name: ironic-api
-        state: started
-      register: api_status
-      failed_when: false
-
-    - name: Check Ironic HTTP service status
-      ansible.builtin.systemd:
-        name: ironic-http
-        state: started
-      register: http_status
-      failed_when: false
-
-    - name: Verify MariaDB port is listening
+    - name: Verify ports are listening
       ansible.builtin.wait_for:
-        port: "{{ mariadb_port }}"
+        port: "{{ item.port }}"
         timeout: 10
-      register: mariadb_port_check
+      loop:
+        - { name: "MariaDB", port: "{{ mariadb_port }}" }
+        - { name: "RabbitMQ", port: "{{ rabbitmq_amqp_port }}" }
+        - { name: "Ironic API", port: "{{ ironic_api_port }}" }
+        - { name: "HTTP Server", port: "{{ ironic_http_port }}" }
+      loop_control:
+        label: "{{ item.name }}"
+      register: port_checks
       failed_when: false
 
-    - name: Verify RabbitMQ port is listening
-      ansible.builtin.wait_for:
-        port: "{{ rabbitmq_amqp_port }}"
-        timeout: 10
-      register: rabbitmq_port_check
-      failed_when: false
-
-    - name: Verify Ironic API port is listening
-      ansible.builtin.wait_for:
-        port: "{{ ironic_api_port }}"
-        timeout: 10
-      register: api_port_check
-      failed_when: false
-
-    - name: Verify HTTP server port is listening
-      ansible.builtin.wait_for:
-        port: "{{ ironic_http_port }}"
-        timeout: 10
-      register: http_port_check
-      failed_when: false
-
-    - name: Check Ironic API health endpoint
+    - name: Check Ironic API health
       ansible.builtin.uri:
         url: "http://localhost:{{ ironic_api_port }}/v1"
         method: GET
-        status_code:
-          - 200
-          - 401
-          - 403
-      register: ironic_api_health
+        status_code: [200, 401, 403]
+      register: api_health
       failed_when: false
-      ignore_errors: true
 
     - name: Display validation results
       ansible.builtin.debug:
         msg:
           - "============================================"
-          - "Validation Results:"
+          - "Validation Results"
           - "============================================"
-          - "MariaDB Service: {{ '✓ Running' if mariadb_status.failed is undefined or not mariadb_status.failed else '✗ Failed' }}"
-          - "RabbitMQ Service: {{ '✓ Running' if rabbitmq_status.failed is undefined or not rabbitmq_status.failed else '✗ Failed' }}"
-          - "Ironic API Service: {{ '✓ Running' if api_status.failed is undefined or not api_status.failed else '✗ Failed' }}"
-          - "Ironic HTTP Service: {{ '✓ Running' if http_status.failed is undefined or not http_status.failed else '✗ Failed' }}"
-          - "============================================"
-          - "Port Status:"
-          - "MariaDB ({{ mariadb_port }}): {{ '✓ Listening' if not mariadb_port_check.failed else '✗ Not Listening' }}"
-          - "RabbitMQ ({{ rabbitmq_amqp_port }}): {{ '✓ Listening' if not rabbitmq_port_check.failed else '✗ Not Listening' }}"
-          - "Ironic API ({{ ironic_api_port }}): {{ '✓ Listening' if not api_port_check.failed else '✗ Not Listening' }}"
-          - "HTTP Server ({{ ironic_http_port }}): {{ '✓ Listening' if not http_port_check.failed else '✗ Not Listening' }}"
+          - "{% for r in service_checks.results %}{{ r.item }}: {{ 'OK' if r.rc == 0 else 'FAILED' }}  {% endfor %}"
+          - "{% for r in conductor_checks.results %}conductor@{{ r.item.name }}: {{ 'OK' if r.rc == 0 else 'FAILED' }}  {% endfor %}"
+          - "API Health: {{ 'Reachable' if api_health.status is defined and api_health.status in [200, 401, 403] else 'Unreachable' }}"
           - "============================================"
