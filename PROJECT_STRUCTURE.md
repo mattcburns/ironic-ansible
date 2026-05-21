@@ -3,42 +3,41 @@
 ```
 ironic-ansible/
 ├── README.md                          # Main project documentation
+├── QUICKSTART.md                      # Quick start guide
 ├── inventory.example                  # Example Ansible inventory
 ├── ansible.cfg                        # Ansible configuration
-├── INITIAL_PHASED_PLAN.md             # Master implementation plan
+├── requirements.yml                   # Ansible Galaxy dependencies
 │
 ├── group_vars/
 │   └── all.yml                        # Global variables for all hosts
-│       - Container images & versions
-│       - Database credentials
-│       - RabbitMQ configuration
-│       - Ironic API settings
-│       - Network configuration
-│       - Storage paths
-│       - Authentication settings
-│       - Future Keystone hooks
 │
 ├── roles/
+│   ├── common/                        # Prerequisites setup
+│   │   └── tasks/main.yml             # Installs htpasswd, creates user/dirs/network
+│   │
 │   ├── mariadb/
-│   │   ├── files/                     # Static files (empty)
 │   │   └── templates/
-│   │       └── mariadb.service.j2     # Systemd unit for MariaDB container
+│   │       ├── mariadb.service.j2     # Systemd unit (ironic-mariadb.service)
+│   │       └── mariadb.env.j2         # Credentials env file (mode 0600)
 │   │
 │   ├── rabbitmq/
-│   │   ├── files/                     # Static files (empty)
 │   │   └── templates/
-│   │       └── rabbitmq.service.j2    # Systemd unit for RabbitMQ container
+│   │       ├── rabbitmq.service.j2    # Systemd unit (ironic-rabbitmq.service)
+│   │       └── rabbitmq.env.j2        # Credentials env file (mode 0600)
 │   │
 │   ├── ipa_downloader/
 │   │   ├── files/
 │   │   │   └── ipa-downloader.sh      # IPA image download script
 │   │   └── templates/
-│   │       └── ipa-downloader.service.j2  # Systemd unit for downloader
+│   │       └── ipa-downloader.service.j2  # Oneshot systemd unit
+│   │
+│   ├── ironic_common/
+│   │   └── templates/
+│   │       └── ironic.conf.j2         # Shared Ironic configuration
 │   │
 │   ├── ironic_api/
 │   │   └── templates/
-│   │       ├── ironic-api.service.j2  # Systemd unit for Ironic API
-│   │       └── ironic.conf.j2         # Ironic configuration file
+│   │       └── ironic-api.service.j2  # Systemd unit for Ironic API
 │   │
 │   ├── ironic_http/
 │   │   └── templates/
@@ -46,150 +45,113 @@ ironic-ansible/
 │   │
 │   └── ironic_conductor/
 │       └── templates/
-│           └── ironic-conductor@.service.j2  # Systemd unit template
+│           ├── ironic-conductor@.service.j2  # Systemd unit template
+│           └── conductor-override.conf.j2    # Per-instance config override
 │
 └── playbooks/
-    ├── deploy.yml                     # Main deployment orchestrator
-    ├── upgrade.yml                    # Upgrade to new version
-    ├── destroy.yml                    # Cleanup and removal
-    │
-    ├── setup.yml                      # Prerequisites setup
-    │   - Creates service user/group
-    │   - Creates data directories
-    │   - Creates Docker network
-    │   - Creates htpasswd file
-    │
-    ├── ironic-deploy.yml              # Main deployment orchestration
-    │
-    ├── mariadb-deploy.yml             # Deploy MariaDB service
-    ├── rabbitmq-deploy.yml            # Deploy RabbitMQ service
-    ├── ipa-deploy.yml                 # Deploy IPA downloader
-    ├── ironic-api-deploy.yml          # Deploy Ironic API service
-    ├── ironic-http-deploy.yml         # Deploy HTTP server service
-    └── ironic-conductor-deploy.yml    # Deploy conductor template
-    │
-    └── validate.yml                   # Validate deployment health
+    ├── deploy.yml                     # Full deployment (roles + validate)
+    ├── validate.yml                   # Health checks for all services
+    ├── upgrade.yml                    # Rolling upgrade to new version
+    └── destroy.yml                    # Complete teardown
 ```
 
-## File Descriptions
+## Roles
 
-### Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `group_vars/all.yml` | Centralized configuration for all deployment variables |
-| `inventory.example` | Template for Ansible inventory (copy to `inventory`) |
-| `ansible.cfg` | Ansible runtime configuration |
-
-### Roles
+#### common
+Prerequisites and host setup:
+- Installs `apache2-utils`/`httpd-tools` for htpasswd
+- Creates service user/group
+- Creates data directories with proper ownership
+- Creates Docker bridge network
+- Generates htpasswd file for HTTP Basic Auth
 
 #### mariadb
-Deploys MariaDB database container with:
+Deploys MariaDB database container:
+- Credentials stored in `/etc/ironic/mariadb.env` (mode 0600)
 - Persistent storage via volume mount
-- Pre-configured database/user creation
-- Systemd service management
+- Bound to 127.0.0.1 by default (containers use Docker network)
+- Systemd service: `ironic-mariadb`
 
 #### rabbitmq
-Deploys RabbitMQ message queue container with:
+Deploys RabbitMQ message queue container:
+- Credentials stored in `/etc/ironic/rabbitmq.env` (mode 0600)
 - Management UI enabled
-- Persistent storage via volume mount
-- Pre-configured user/vhost creation
+- Bound to 127.0.0.1 by default
+- Systemd service: `ironic-rabbitmq`
 
 #### ipa_downloader
 Downloads Ironic Python Agent images:
-- Fetches kernel/ramdisk/ISO images
+- Fetches kernel and ramdisk from upstream
 - Stores in shared HTTP directory
-- Retry logic and verification
+- Retry logic and file verification
+- Oneshot systemd unit with `RemainAfterExit=yes`
+
+#### ironic_common
+Shared Ironic configuration and schema:
+- Generates `ironic.conf` from template
+- Runs `ironic-dbsync upgrade` to initialize/migrate the database
 
 #### ironic_api
 Deploys Ironic API service:
-- Generates ironic.conf from template
-- Creates htpasswd for HTTP Basic Auth
-- Mounts configuration and logs
+- Mounts ironic.conf and htpasswd
+- Exposes API on configurable bind address and port
 
 #### ironic_http
-Deploys HTTP server for IPA images:
-- Serves IPA kernel/ramdisk
-- Serves boot ISOs for virtual media
-- No authentication (public access)
+Deploys HTTP server for IPA images and boot ISOs:
+- Serves files from `/var/lib/ironic/http-images`
+- Starts after ipa-downloader to ensure images are available
+- No authentication (must be reachable from BMC network)
 
 #### ironic_conductor
-Creates scalable conductor template:
-- Systemd unit template with instance support
-- Generates per-instance configurations
-- Supports dynamic scaling
+Deploys scalable conductor instances:
+- Systemd template unit (`ironic-conductor@.service`)
+- Per-instance config override sets host, workers, and conductor group
+- Each instance gets a stable hostname (`--hostname ironic-conductor-<group>`)
 
-### Playbooks
+## Playbooks
 
-#### Deploy Playbooks
-
-| Playbook | Purpose |
-|----------|---------|
-| `deploy.yml` | Master orchestrator for full deployment |
-| `setup.yml` | Sets up prerequisites (user, dirs, network) |
-| `mariadb-deploy.yml` | Deploys MariaDB service |
-| `rabbitmq-deploy.yml` | Deploys RabbitMQ service |
-| `ipa-deploy.yml` | Downloads IPA images |
-| `ironic-api-deploy.yml` | Deploys Ironic API |
-| `ironic-http-deploy.yml` | Deploys HTTP server |
-| `ironic-conductor-deploy.yml` | Deploys conductor instances |
-| `validate.yml` | Verifies all services are healthy |
-
-#### Maintenance Playbooks
-
-| Playbook | Purpose |
-|----------|---------|
-| `upgrade.yml` | Updates all services to new version |
-| `destroy.yml` | Complete cleanup of deployment |
-
-## Templates Overview
-
-All Jinja2 templates use variables from `group_vars/all.yml`:
-
-### Service Templates (`.service.j2`)
-- Define systemd unit for Docker container management
-- Include health checks and automatic restart
-- Support graceful shutdown
-- Run as unprivileged service user
-
-### Configuration Templates (`.conf.j2`)
-- Generate Ironic configuration dynamically
-- Support conditional sections (Keystone, SSL)
-- Include all required interface registrations
-- Support conductor group configuration
+- **`deploy.yml`** — Full deployment: runs all roles in order, then validates
+- **`validate.yml`** — Checks systemd services, ports, and API health
+- **`upgrade.yml`** — Stops Ironic services, re-deploys config/images, restarts
+- **`destroy.yml`** — Stops all services, removes containers/units/data/user
 
 ## Deployment Flow
 
 ```
 deploy.yml
-  ├── setup.yml (prerequisites)
+  ├── common role (prerequisites)
+  │   ├── Install htpasswd package
   │   ├── Create service user/group
   │   ├── Create directories
   │   ├── Create Docker network
-  │   └── Create htpasswd file
+  │   └── Generate htpasswd file
   │
-  └── ironic-deploy.yml
-      ├── mariadb-deploy.yml
-      │   └── mariadb.service.j2
-      │
-      ├── rabbitmq-deploy.yml
-      │   └── rabbitmq.service.j2
-      │
-      ├── ipa-deploy.yml
-      │   ├── ipa-downloader.sh
-      │   └── ipa-downloader.service.j2
-      │
-      ├── ironic-api-deploy.yml
-      │   ├── ironic.conf.j2
-      │   └── ironic-api.service.j2
-      │
-      ├── ironic-http-deploy.yml
-      │   └── ironic-http.service.j2
-      │
-      └── ironic-conductor-deploy.yml
-          ├── ironic-conductor@.service.j2
-          └── ironic.conf.j2 (per instance)
-
+  ├── mariadb role
+  │   ├── mariadb.env.j2 → /etc/ironic/mariadb.env
+  │   └── mariadb.service.j2 → ironic-mariadb.service
+  │
+  ├── rabbitmq role
+  │   ├── rabbitmq.env.j2 → /etc/ironic/rabbitmq.env
+  │   └── rabbitmq.service.j2 → ironic-rabbitmq.service
+  │
+  ├── ipa_downloader role
+  │   ├── ipa-downloader.sh
+  │   └── ipa-downloader.service.j2
+  │
+  ├── ironic_common role
+  │   ├── ironic.conf.j2 → /etc/ironic/ironic.conf
+  │   └── ironic-dbsync upgrade
+  │
+  ├── ironic_http role
+  │   └── ironic-http.service.j2
+  │
+  ├── ironic_api role
+  │   └── ironic-api.service.j2
+  │
+  ├── ironic_conductor role
+  │   ├── conductor-override.conf.j2 → /etc/ironic/conductor-<group>.conf
+  │   └── ironic-conductor@.service.j2
+  │
   └── validate.yml (health checks)
 ```
 
@@ -210,7 +172,7 @@ ironic_conductor_groups:
 
 2. Deploy:
 ```bash
-ansible-playbook playbooks/ironic-conductor-deploy.yml -i inventory
+ansible-playbook playbooks/deploy.yml -i inventory
 ```
 
 3. Verify:
@@ -218,14 +180,17 @@ ansible-playbook playbooks/ironic-conductor-deploy.yml -i inventory
 systemctl status ironic-conductor@group3
 ```
 
+Each conductor group gets its own `conductor_group` assignment in Ironic, so
+nodes can be targeted to specific conductors via the `conductor_group` property.
+
 ## Customization Points
 
 ### Change Image Versions
 Edit `group_vars/all.yml`:
 ```yaml
-ironic_image_tag: "2024.3"
-mariadb_image_tag: "11.4"
-rabbitmq_image_tag: "3.13-management"
+ironic_image_tag: "v34.0.0"  # Pin for production
+mariadb_image: "mariadb:11.4"
+rabbitmq_image: "rabbitmq:3.13-management"
 ```
 
 ### Change Ports
