@@ -1,0 +1,49 @@
+# Ansible
+*.retry
+*.log
+*.tar
+*.tar.gz
+*.tar.bz2
+.credential-cache
+
+# Ansible fact cache
+/tmp/ansible_facts/
+
+# Inventory files (actual inventory, not example)
+inventory
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sensitive data
+*.key
+*.pem
+secrets.yml
+credentials.yml
+
+# Logs
+*.log
+ansible.log
+
+# Temporary files
+*.tmp
+temp/

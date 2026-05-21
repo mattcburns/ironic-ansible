@@ -1,0 +1,52 @@
+---
+# IPA Downloader deployment playbook
+
+- name: Deploy IPA Downloader Service
+  hosts: localhost
+  become: true
+  gather_facts: true
+
+  vars:
+    ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
+    chmod_command: "chmod -R 755"
+    docker_bin: "/usr/bin/docker"
+    ironic_config_generator: "/opt/ironic/generate-config.sh"
+
+  tasks:
+    - name: Copy IPA downloader script
+      ansible.builtin.copy:
+        src: ipa-downloader.sh
+        dest: "{{ ipa_downloader_script_path }}"
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Deploy IPA downloader service template
+      ansible.builtin.template:
+        src: ipa-downloader.service.j2
+        dest: /etc/systemd/system/ipa-downloader.service
+        mode: '0644'
+        backup: true
+      notify: Restart systemd
+
+    - name: Enable and run IPA downloader
+      ansible.builtin.systemd:
+        name: ipa-downloader
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Verify IPA images were downloaded
+      ansible.builtin.stat:
+        path: "{{ ipa_images_directory }}/{{ item }}"
+      loop:
+        - "ironic-python-agent.iso"
+        - "ironic-python-agent.kernel"
+        - "ironic-python-agent.ramdisk"
+      register: ipa_files
+      failed_when: false
+
+handlers:
+  - name: Restart systemd
+    ansible.builtin.systemd:
+      daemon_reload: true

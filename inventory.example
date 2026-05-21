@@ -1,0 +1,69 @@
+# =============================================================================
+# Ansible Inventory Example for Standalone Ironic Deployment
+# =============================================================================
+# Copy this file to 'inventory' and modify for your environment.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Single-node deployment (default)
+# -----------------------------------------------------------------------------
+# For a single-host deployment, use the following format:
+
+[ironic]
+localhost ansible_connection=local
+
+# -----------------------------------------------------------------------------
+# Multi-node deployment (future)
+# -----------------------------------------------------------------------------
+# For deployments across multiple hosts, use groups:
+
+# [ironic:children]
+# ironic-api
+# ironic-conductors
+# ironic-http
+
+# [ironic-api]
+# ironic-api-node-01 ansible_host=192.168.1.10
+
+# [ironic-conductors]
+# ironic-conductor-node-01 ansible_host=192.168.1.11
+# ironic-conductor-node-02 ansible_host=192.168.1.12
+
+# [ironic-http]
+# ironic-http-node-01 ansible_host=192.168.1.13
+
+# [db:children]
+# mariadb
+# rabbitmq
+
+# [mariadb]
+# mariadb-node-01 ansible_host=192.168.1.20
+
+# [rabbitmq]
+# rabbitmq-node-01 ansible_host=192.168.1.21
+
+# -----------------------------------------------------------------------------
+# Variables per host (optional)
+# -----------------------------------------------------------------------------
+# Override global variables for specific hosts:
+
+# [ironic-api:vars]
+# ironic_api_port=6385
+
+# [ironic-conductors:vars]
+# ironic_conductor_workers=8
+
+# -----------------------------------------------------------------------------
+# Using host overrides
+# -----------------------------------------------------------------------------
+# To deploy to a remote host, add it to the [ironic] group:
+
+# [ironic]
+# localhost ansible_connection=local
+# ironic-01 ansible_host=192.168.1.10 ansible_user=ubuntu
+
+# -----------------------------------------------------------------------------
+# Group variables
+# -----------------------------------------------------------------------------
+# Define variables specific to a group in group_vars/<group>.yml
+# For example, group_vars/ironic.yml

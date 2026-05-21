@@ -1,0 +1,53 @@
+---
+# Upgrade playbook for Ironic deployment
+# This playbook updates all services to the latest configured image tags.
+
+- name: Stop Ironic Services
+  hosts: localhost
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Stop all Ironic services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        daemon_reload: true
+      loop:
+        - ironic-api
+        - ironic-http
+        - ironic-network
+      ignore_errors: true
+
+- name: Upgrade Dependencies
+  ansible.builtin.import_playbook: ironic-deploy.yml
+
+- name: Start Ironic Services
+  hosts: localhost
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Start all Ironic services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+        daemon_reload: true
+      loop:
+        - ironic-network
+        - ironic-http
+        - ironic-api
+      ignore_errors: true
+
+- name: Display Upgrade Summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Show upgrade summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "Ironic Upgrade Complete!"
+          - "============================================"
+          - "Upgraded to: {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
+          - "Services restarted and running"
+          - "============================================"

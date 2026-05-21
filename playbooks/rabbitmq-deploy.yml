@@ -1,0 +1,34 @@
+---
+# RabbitMQ deployment playbook
+
+- name: Deploy RabbitMQ Service
+  hosts: localhost
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Deploy RabbitMQ service template
+      ansible.builtin.template:
+        src: rabbitmq.service.j2
+        dest: /etc/systemd/system/rabbitmq.service
+        mode: '0644'
+        backup: true
+      notify: Restart systemd
+
+    - name: Enable and start RabbitMQ service
+      ansible.builtin.systemd:
+        name: rabbitmq
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Wait for RabbitMQ to be ready
+      ansible.builtin.wait_for:
+        port: "{{ rabbitmq_amqp_port }}"
+        timeout: 60
+      ignore_errors: true
+
+handlers:
+  - name: Restart systemd
+    ansible.builtin.systemd:
+      daemon_reload: true

@@ -1,0 +1,57 @@
+---
+# Ironic Conductor deployment playbook
+
+- name: Deploy Ironic Conductor Services
+  hosts: localhost
+  become: true
+  gather_facts: true
+
+  vars:
+    ironic_config_generator: "/opt/ironic/generate-config.sh"
+    docker_bin: "/usr/bin/docker"
+    ironic_conductor_workers: 4
+
+  tasks:
+    - name: Deploy Ironic conductor service template
+      ansible.builtin.template:
+        src: ironic-conductor@.service.j2
+        dest: /etc/systemd/system/ironic-conductor@.service
+        mode: '0644'
+        backup: true
+      notify: Restart systemd
+
+    - name: Generate conductor configurations
+      ansible.builtin.template:
+        src: ironic.conf.j2
+        dest: "{{ ironic_etc_dir }}/ironic-{{ item.name }}.conf"
+        mode: '0640'
+        owner: "{{ ironic_service_user }}"
+        group: "{{ ironic_service_group }}"
+        backup: true
+      loop: "{{ ironic_conductor_groups }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        ironic_conductor_group: "{{ item.name }}"
+        ironic_conductor_workers: "{{ item.workers }}"
+
+    - name: Enable and start conductor instances
+      ansible.builtin.systemd:
+        name: "ironic-conductor@{{ item.name }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+      loop: "{{ ironic_conductor_groups }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Wait for conductors to be ready
+      ansible.builtin.wait_for:
+        port: "{{ ironic_api_port }}"
+        timeout: 30
+      ignore_errors: true
+
+handlers:
+  - name: Restart systemd
+    ansible.builtin.systemd:
+      daemon_reload: true

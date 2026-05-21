@@ -1,0 +1,105 @@
+---
+# Destroy playbook for Ironic deployment
+# This playbook removes all Ironic services and cleans up data.
+
+- name: Stop All Ironic Services
+  hosts: localhost
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Stop Ironic services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        daemon_reload: true
+      loop:
+        - ironic-api
+        - ironic-http
+        - ironic-conductor@group1
+        - ironic-conductor@group2
+        - ipa-downloader
+        - mariadb
+        - rabbitmq
+        - ironic-network
+      ignore_errors: true
+
+    - name: Remove Ironic service files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/ironic-api.service
+        - /etc/systemd/system/ironic-http.service
+        - /etc/systemd/system/ironic-conductor@.service
+        - /etc/systemd/system/ipa-downloader.service
+        - /etc/systemd/system/mariadb.service
+        - /etc/systemd/system/rabbitmq.service
+        - /etc/systemd/system/ironic-network.service
+      ignore_errors: true
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+- name: Remove Docker Containers
+  hosts: localhost
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Stop and remove all Ironic containers
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+        force_kill: true
+      loop:
+        - ironic-api
+        - ironic-http
+        - ironic-conductor-group1
+        - ironic-conductor-group2
+        - ironic-mariadb
+        - ironic-rabbitmq
+
+- name: Remove Data Directories
+  hosts: localhost
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Remove Ironic data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ ironic_data_root }}"
+        - "{{ ironic_etc_dir }}"
+        - "{{ ironic_var_log_dir }}"
+      ignore_errors: true
+
+    - name: Remove service user and group
+      ansible.builtin.user:
+        name: "{{ ironic_service_user }}"
+        state: absent
+        remove: true
+      ignore_errors: true
+
+    - name: Remove service group
+      ansible.builtin.group:
+        name: "{{ ironic_service_group }}"
+        state: absent
+      ignore_errors: true
+
+- name: Display Cleanup Summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Show cleanup summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "Ironic Deployment Destroyed!"
+          - "============================================"
+          - "All services stopped and removed"
+          - "All containers removed"
+          - "All data directories removed"
+          - "To redeploy, run: ansible-playbook playbooks/deploy.yml"
+          - "============================================"

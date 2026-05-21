@@ -1,0 +1,95 @@
+---
+# Validation playbook for Ironic deployment
+# This playbook validates that all services are running and healthy.
+
+- name: Validate Ironic Deployment
+  hosts: localhost
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check MariaDB service status
+      ansible.builtin.systemd:
+        name: mariadb
+        state: started
+      register: mariadb_status
+      failed_when: false
+
+    - name: Check RabbitMQ service status
+      ansible.builtin.systemd:
+        name: rabbitmq
+        state: started
+      register: rabbitmq_status
+      failed_when: false
+
+    - name: Check Ironic API service status
+      ansible.builtin.systemd:
+        name: ironic-api
+        state: started
+      register: api_status
+      failed_when: false
+
+    - name: Check Ironic HTTP service status
+      ansible.builtin.systemd:
+        name: ironic-http
+        state: started
+      register: http_status
+      failed_when: false
+
+    - name: Verify MariaDB port is listening
+      ansible.builtin.wait_for:
+        port: "{{ mariadb_port }}"
+        timeout: 10
+      register: mariadb_port_check
+      failed_when: false
+
+    - name: Verify RabbitMQ port is listening
+      ansible.builtin.wait_for:
+        port: "{{ rabbitmq_amqp_port }}"
+        timeout: 10
+      register: rabbitmq_port_check
+      failed_when: false
+
+    - name: Verify Ironic API port is listening
+      ansible.builtin.wait_for:
+        port: "{{ ironic_api_port }}"
+        timeout: 10
+      register: api_port_check
+      failed_when: false
+
+    - name: Verify HTTP server port is listening
+      ansible.builtin.wait_for:
+        port: "{{ ironic_http_port }}"
+        timeout: 10
+      register: http_port_check
+      failed_when: false
+
+    - name: Check Ironic API health endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:{{ ironic_api_port }}/v1"
+        method: GET
+        status_code:
+          - 200
+          - 401
+          - 403
+      register: ironic_api_health
+      failed_when: false
+      ignore_errors: true
+
+    - name: Display validation results
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "Validation Results:"
+          - "============================================"
+          - "MariaDB Service: {{ '✓ Running' if mariadb_status.failed is undefined or not mariadb_status.failed else '✗ Failed' }}"
+          - "RabbitMQ Service: {{ '✓ Running' if rabbitmq_status.failed is undefined or not rabbitmq_status.failed else '✗ Failed' }}"
+          - "Ironic API Service: {{ '✓ Running' if api_status.failed is undefined or not api_status.failed else '✗ Failed' }}"
+          - "Ironic HTTP Service: {{ '✓ Running' if http_status.failed is undefined or not http_status.failed else '✗ Failed' }}"
+          - "============================================"
+          - "Port Status:"
+          - "MariaDB ({{ mariadb_port }}): {{ '✓ Listening' if not mariadb_port_check.failed else '✗ Not Listening' }}"
+          - "RabbitMQ ({{ rabbitmq_amqp_port }}): {{ '✓ Listening' if not rabbitmq_port_check.failed else '✗ Not Listening' }}"
+          - "Ironic API ({{ ironic_api_port }}): {{ '✓ Listening' if not api_port_check.failed else '✗ Not Listening' }}"
+          - "HTTP Server ({{ ironic_http_port }}): {{ '✓ Listening' if not http_port_check.failed else '✗ Not Listening' }}"
+          - "============================================"

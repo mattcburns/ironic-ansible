@@ -1,0 +1,35 @@
+---
+# Main deployment playbook for Standalone Ironic
+# This playbook orchestrates the complete deployment of Ironic with Docker and systemd.
+
+- name: Include setup variables
+  ansible.builtin.import_playbook: setup.yml
+
+- name: Deploy Ironic Infrastructure
+  ansible.builtin.import_playbook: ironic-deploy.yml
+
+- name: Validate Ironic Deployment
+  ansible.builtin.import_playbook: validate.yml
+
+- name: Display Deployment Summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Show deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "Ironic Deployment Complete!"
+          - "============================================"
+          - "Ironic API: http://{{ ironic_api_host }}:{{ ironic_api_port }}"
+          - "HTTP Server: http://{{ ironic_api_host }}:{{ ironic_http_port }}"
+          - "MariaDB: localhost:{{ mariadb_port }}"
+          - "RabbitMQ: localhost:{{ rabbitmq_amqp_port }}"
+          - "RabbitMQ Management: http://localhost:{{ rabbitmq_management_port }}"
+          - "============================================"
+          - "Next Steps:"
+          - "1. Test the API: curl -u admin:{{ ironic_admin_password }} http://{{ ironic_api_host }}:{{ ironic_api_port }}/v1/nodes"
+          - "2. Add a bare metal node using the Ironic API"
+          - "3. Upload a deployment ISO to {{ ironic_http_images_dir }}"
+          - "4. Use Redfish virtual media to boot the node"
+          - "============================================"

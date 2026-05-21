@@ -1,0 +1,53 @@
+[Unit]
+Description=Ironic Conductor Service (Instance: %i)
+Documentation=https://docs.openstack.org/ironic/latest/
+After=docker.service ironic-network.service
+Requires=docker.service ironic-network.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Run as unprivileged user
+User={{ ironic_service_user }}
+Group={{ ironic_service_group }}
+
+# Instance-specific container name
+{% set conductor_instance = '%i' %}
+{% set conductor_container_name = 'ironic-conductor-' + conductor_instance %}
+
+# Pull the latest image
+ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}
+
+# Create required directories
+ExecStartPre=-mkdir -p {{ ironic_etc_dir }}
+ExecStartPre=-mkdir -p {{ ironic_var_log_dir }}
+
+# Generate instance-specific configuration
+ExecStartPre=-test -f {{ ironic_etc_dir }}/ironic-{{ conductor_instance }}.conf || {{ ironic_config_generator }} --instance {{ conductor_instance }}
+
+# Start the Ironic Conductor container
+ExecStartPre=-{{ docker_bin }} rm -f {{ conductor_container_name }}
+ExecStart={{ docker_bin }} run --name {{ conductor_container_name }} \
+    -d \
+    --restart=always \
+    --network ironic-network \
+    -v {{ ironic_etc_dir }}/ironic-{{ conductor_instance }}.conf:/etc/ironic/ironic.conf:ro,z \
+    -v {{ ironic_var_log_dir }}:/var/log/ironic:z \
+    -e IRONIC_CONDUCTOR_GROUP={{ conductor_instance }} \
+    {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
+    /usr/bin/ironic-conductor
+
+# Graceful shutdown
+ExecStop={{ docker_bin }} stop {{ conductor_container_name }}
+ExecStopPost={{ docker_bin }} rm {{ conductor_container_name }}
+
+TimeoutStartSec=120
+TimeoutStopSec=60
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

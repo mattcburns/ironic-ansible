@@ -1,0 +1,50 @@
+[Unit]
+Description=Ironic API Service
+Documentation=https://docs.openstack.org/ironic/latest/
+After=docker.service ironic-network.service
+Requires=docker.service ironic-network.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Run as unprivileged user
+User={{ ironic_service_user }}
+Group={{ ironic_service_group }}
+
+# Pull the latest image
+ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}
+
+# Create required directories
+ExecStartPre=-mkdir -p {{ ironic_etc_dir }}
+ExecStartPre=-mkdir -p {{ ironic_var_log_dir }}
+
+# Ensure configuration exists
+ExecStartPre=-test -f {{ ironic_etc_dir }}/ironic.conf || {{ ironic_config_generator }}
+
+# Start the Ironic API container
+ExecStartPre=-{{ docker_bin }} rm -f {{ ironic_api_container_name }}
+ExecStart={{ docker_bin }} run --name {{ ironic_api_container_name }} \
+    -d \
+    --restart=always \
+    --network ironic-network \
+    -v {{ ironic_etc_dir }}/ironic.conf:/etc/ironic/ironic.conf:ro,z \
+    -v {{ ironic_var_log_dir }}:/var/log/ironic:z \
+    -v {{ ironic_http_images_dir }}:/var/lib/ironic/http-images:ro,z \
+    -p {{ ironic_api_port }}:6385 \
+    {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
+    /usr/bin/ironic-api
+
+# Graceful shutdown
+ExecStop={{ docker_bin }} stop {{ ironic_api_container_name }}
+ExecStopPost={{ docker_bin }} rm {{ ironic_api_container_name }}
+
+TimeoutStartSec=120
+TimeoutStopSec=60
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
