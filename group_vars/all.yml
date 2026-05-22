@@ -82,6 +82,7 @@ ironic_api_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn) }}"
 # -----------------------------------------------------------------------------
 
 ironic_http_container_name: "ironic-http"
+ironic_http_image: "nginx:1.27-alpine"
 ironic_http_port: 6180
 ironic_http_bind_addr: "0.0.0.0"
 ironic_http_images_dir: "/var/lib/ironic/http-images"
