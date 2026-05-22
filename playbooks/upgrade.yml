@@ -45,5 +45,12 @@
     - role: ironic_api
     - role: ironic_conductor
 
+- name: Refresh Containerized Ironic CLI Helper
+  hosts: ironic
+  become: true
+  gather_facts: false
+  roles:
+    - role: ironic_cli
+
 - name: Validate Upgrade
   ansible.builtin.import_playbook: validate.yml

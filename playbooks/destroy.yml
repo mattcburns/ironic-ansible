@@ -43,6 +43,8 @@
         - /etc/systemd/system/ipa-downloader.service
         - /etc/systemd/system/ironic-mariadb.service
         - /etc/systemd/system/ironic-rabbitmq.service
+        - "{{ ironic_cli_wrapper_path }}"
+        - "{{ ironic_cli_env_file }}"
 
     - name: Reload systemd
       ansible.builtin.systemd:

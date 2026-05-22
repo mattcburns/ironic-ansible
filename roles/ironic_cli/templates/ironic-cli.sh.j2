@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOCKER_BIN="{{ docker_bin }}"
+CLI_IMAGE="{{ ironic_cli_image }}"
+CLI_NETWORK="{{ ironic_cli_network_name }}"
+CLI_ENV_FILE="{{ ironic_cli_env_file }}"
+IRONIC_ETC_DIR="{{ ironic_etc_dir }}"
+
+if [[ ! -f "${CLI_ENV_FILE}" ]]; then
+  echo "Missing ${CLI_ENV_FILE}. Re-run ansible-playbook playbooks/deploy.yml -i inventory."
+  exit 1
+fi
+
+if [[ $# -eq 0 ]]; then
+  cat <<'EOF'
+Usage:
+  ironic-cli <baremetal-subcommand...>
+  ironic-cli openstack baremetal <subcommand...>
+  ironic-cli ironic <subcommand...>
+
+Examples:
+  ironic-cli node list
+  ironic-cli openstack baremetal node show <node>
+  ironic-cli ironic --help
+EOF
+  exit 1
+fi
+
+if [[ "$1" == "openstack" || "$1" == "ironic" ]]; then
+  CLI_COMMAND=( "$@" )
+else
+  CLI_COMMAND=( "openstack" "baremetal" "$@" )
+fi
+
+TTY_ARGS=()
+if [[ -t 0 && -t 1 ]]; then
+  TTY_ARGS=( "-it" )
+fi
+
+exec "${DOCKER_BIN}" run --rm "${TTY_ARGS[@]}" \
+  --network "${CLI_NETWORK}" \
+  --env-file "${CLI_ENV_FILE}" \
+  -v "${IRONIC_ETC_DIR}:/etc/ironic:ro,z" \
+  "${CLI_IMAGE}" \
+  "${CLI_COMMAND[@]}"

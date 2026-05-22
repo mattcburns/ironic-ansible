@@ -1,0 +1,29 @@
+---
+- name: Configure containerized Ironic CLI helper
+  when: ironic_cli_enabled | bool
+  block:
+    - name: Deploy Ironic CLI environment file
+      ansible.builtin.template:
+        src: ironic-cli.env.j2
+        dest: "{{ ironic_cli_env_file }}"
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+
+    - name: Deploy Ironic CLI wrapper script
+      ansible.builtin.template:
+        src: ironic-cli.sh.j2
+        dest: "{{ ironic_cli_wrapper_path }}"
+        owner: root
+        group: root
+        mode: '0755'
+
+- name: Remove containerized Ironic CLI helper when disabled
+  when: not ironic_cli_enabled | bool
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ ironic_cli_wrapper_path }}"
+    - "{{ ironic_cli_env_file }}"
