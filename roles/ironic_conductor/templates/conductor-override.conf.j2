@@ -5,5 +5,5 @@
 host = ironic-conductor-{{ item.name }}
 
 [conductor]
-workers_pool_size = {{ item.workers }}
+workers_pool_size = {{ item.workers | default(ironic_conductor_default_workers) }}
 conductor_group = {{ item.name }}

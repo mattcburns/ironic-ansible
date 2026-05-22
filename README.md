@@ -307,12 +307,19 @@ ironic_default_inspect_interface: "agent"
 ### Conductor Groups
 
 ```yaml
+# Default green-thread pool size applied to every conductor.
+ironic_conductor_default_workers: 128
+
 ironic_conductor_groups:
-  - name: "group1"
-    workers: 4
+  - name: "group1"                # uses ironic_conductor_default_workers
   - name: "group2"
-    workers: 4
+    workers: 256                   # per-group override
 ```
+
+Each conductor inherits `ironic_conductor_default_workers` unless an explicit
+`workers` value is set on the group entry. The pool size must exceed the
+minimum Ironic calculates from the number of enabled hardware types and
+interfaces; 128 provides comfortable headroom for the default driver set.
 
 ## 🔐 Security Considerations
 
