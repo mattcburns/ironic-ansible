@@ -1,0 +1,45 @@
+---
+- ansible.builtin.import_playbook: destroy.yml
+
+- name: Remove Host Prerequisites for a Clean Re-run
+  hosts: ironic
+  become: true
+  gather_facts: true
+  vars:
+    rollback_remove_container_images: true
+    rollback_remove_prerequisite_packages: true
+  tasks:
+    - name: Remove deployment container images
+      ansible.builtin.command: "{{ docker_bin }} image rm -f {{ item }}"
+      loop:
+        - "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
+        - "{{ ironic_image_repo }}/ironic-httpd:{{ ironic_image_tag }}"
+        - "{{ mariadb_image }}"
+        - "{{ rabbitmq_image }}"
+      register: rollback_image_remove
+      failed_when: false
+      changed_when: rollback_image_remove.rc == 0
+      when: rollback_remove_container_images | bool
+
+    - name: Remove htpasswd utility package (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: apache2-utils
+        state: absent
+        autoremove: true
+      when:
+        - rollback_remove_prerequisite_packages | bool
+        - ansible_os_family == 'Debian'
+
+    - name: Remove htpasswd utility package (RHEL/CentOS)
+      ansible.builtin.yum:
+        name: httpd-tools
+        state: absent
+      when:
+        - rollback_remove_prerequisite_packages | bool
+        - ansible_os_family == 'RedHat'
+
+    - name: Show rollback summary
+      ansible.builtin.debug:
+        msg:
+          - "Ironic host rollback complete."
+          - "Run a fresh deploy with: ansible-playbook playbooks/deploy.yml -i inventory"
