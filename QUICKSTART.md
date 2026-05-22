@@ -20,18 +20,27 @@ sudo -l
 
 ### Step 1: Configure Variables
 
-Open `group_vars/all.yml` and change the default passwords:
+Generate deployment passwords:
 
 ```bash
-nano group_vars/all.yml
+./scripts/generate-passwords.sh
 ```
 
-Change these lines:
+This updates the required password values in `group_vars/all.yml` and writes a
+backup to `group_vars/all.yml.bak`.
+
+Optional: use a custom password length:
+
+```bash
+PASSWORD_LENGTH=48 ./scripts/generate-passwords.sh
+```
+
+Then review `group_vars/all.yml` for any additional customization (for example,
+image tags or ports):
+
 ```yaml
-mariadb_password: "YOUR_MARIADB_PASSWORD"
-mariadb_root_password: "YOUR_ROOT_PASSWORD"
-rabbitmq_password: "YOUR_RABBITMQ_PASSWORD"
-ironic_admin_password: "YOUR_IRONIC_ADMIN_PASSWORD"
+ironic_image_tag: "latest"
+ironic_api_port: 6385
 ```
 
 ### Step 2: Create Inventory

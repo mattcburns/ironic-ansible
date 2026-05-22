@@ -61,12 +61,12 @@ mariadb_image: "mariadb:11.4"
 
 mariadb_database: "ironic"
 mariadb_user: "ironic"
-mariadb_password: "ironic_secure_password_here"      # CHANGE IN PRODUCTION
-mariadb_root_password: "ironic_root_password_here"    # CHANGE IN PRODUCTION
+mariadb_password: "ironic_secure_password_here" # CHANGE IN PRODUCTION
+mariadb_root_password: "ironic_root_password_here" # CHANGE IN PRODUCTION
 
 mariadb_container_name: "ironic-mariadb"
 mariadb_port: 3306
-mariadb_bind_addr: "127.0.0.1"  # Containers use Docker network; host port is for debugging only
+mariadb_bind_addr: "127.0.0.1" # Containers use Docker network; host port is for debugging only
 mariadb_data_dir: "/var/lib/ironic/mariadb"
 
 # -----------------------------------------------------------------------------
@@ -77,12 +77,12 @@ rabbitmq_image: "rabbitmq:3.13-management"
 
 rabbitmq_container_name: "ironic-rabbitmq"
 rabbitmq_user: "ironic"
-rabbitmq_password: "ironic_rabbitmq_password_here"    # CHANGE IN PRODUCTION
+rabbitmq_password: "ironic_rabbitmq_password_here" # CHANGE IN PRODUCTION
 rabbitmq_vhost: "/"
 
 rabbitmq_amqp_port: 5672
 rabbitmq_management_port: 15672
-rabbitmq_bind_addr: "127.0.0.1"  # Containers use Docker network; host port is for debugging only
+rabbitmq_bind_addr: "127.0.0.1" # Containers use Docker network; host port is for debugging only
 rabbitmq_data_dir: "/var/lib/ironic/rabbitmq"
 
 # -----------------------------------------------------------------------------
@@ -95,7 +95,7 @@ ironic_api_port: 6385
 # Authentication
 ironic_auth_strategy: "http_basic"
 ironic_admin_username: "admin"
-ironic_admin_password: "ironic_admin_password_here"   # CHANGE IN PRODUCTION
+ironic_admin_password: "ironic_admin_password_here" # CHANGE IN PRODUCTION
 
 # API bind address
 ironic_api_bind_addr: "0.0.0.0"
@@ -140,7 +140,7 @@ ironic_conductor_groups: []
 # Ironic Driver & Interface Configuration
 # -----------------------------------------------------------------------------
 
-ironic_enabled_hardware_types: "ipmi,redfish"
+ironic_enabled_hardware_types: "redfish"
 
 # Boot: virtual media primary, HTTPS boot secondary
 ironic_enabled_boot_interfaces: "redfish-virtual-media,redfish-https"

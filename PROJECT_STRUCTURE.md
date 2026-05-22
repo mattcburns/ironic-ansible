@@ -7,6 +7,8 @@ ironic-ansible/
 ├── inventory.example                  # Example Ansible inventory
 ├── ansible.cfg                        # Ansible configuration
 ├── requirements.yml                   # Ansible Galaxy dependencies
+├── scripts/
+│   └── generate-passwords.sh          # Generates and applies pre-deploy secrets
 │
 ├── group_vars/
 │   └── all.yml                        # Global variables for all hosts
@@ -122,6 +124,14 @@ Installs a containerized CLI helper:
 - Installs `/usr/local/bin/ironic-cli` wrapper script
 - Writes `/etc/openstack/clouds.yaml` with an `ironic` cloud profile for `--os-cloud`
 - Runs OpenStack baremetal CLI inside `ghcr.io/mattcburns/ironic-cli:latest`
+
+## Scripts
+
+#### generate-passwords.sh
+Pre-deploy password helper:
+- Generates strong random values for required secret variables
+- Updates `group_vars/all.yml` in place
+- Writes a backup file (`group_vars/all.yml.bak`) before changes
 
 ## Playbooks
 
