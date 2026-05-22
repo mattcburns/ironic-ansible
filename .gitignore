@@ -39,6 +39,7 @@ Thumbs.db
 *.pem
 secrets.yml
 credentials.yml
+network-config.json
 
 # Logs
 *.log

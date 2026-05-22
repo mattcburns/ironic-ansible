@@ -210,47 +210,15 @@ accept file path arguments.
 openstack --os-cloud ironic baremetal node list
 ```
 
-### Create a Node (via API)
+### Enrolling and Provisioning a Node
 
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{
-    "name": "node-01",
-    "driver": "redfish",
-    "driver_info": {
-      "redfish_address": "https://<bmc-ip>",
-      "redfish_username": "<bmc-user>",
-      "redfish_password": "<bmc-password>"
-    },
-    "boot_interface": "redfish-virtual-media",
-    "deploy_interface": "ramdisk",
-    "network_interface": "noop",
-    "inspect_interface": "agent"
-  }' \
-  -u admin:<password> \
-  http://<hostname>:6385/v1/nodes
-```
+1. Enroll the node by creating it in the API: `ironic-cli node create --driver redfish --driver-info redfish_address=<redfish https endpoint> --driver-info redfish_username=<bmc user> --driver-info redfish_password=<bmc password> --driver-info redfish_verify_ca=False`
+1. Make the node manageable: `ironic-cli node manage <node id>`
+1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data /app/servers/<server>/network_data.json <node id>`
+1. Make the node available for provisioning and trigger a cleaning: `ironic-cli node provide <node id>`
+1. Configure the OS to provision: `ironic-cli node set <node id> --instance-info image_source=<url to os image> --instance-info image_checksum=<os image sha256sum>`
+1. Provision the node: `ironic-cli node deploy <node id> --configdrive <some cloudinit json, optional>`
 
-### Run Inspection
-
-```bash
-# Start inspection with agent interface
-openstack baremetal node inspect node-01
-```
-
-### Deploy a Custom ISO
-
-```bash
-# 1. Upload your deployment ISO
-cp your-iso.iso /var/lib/ironic/http-images/
-
-# 2. Inject ISO via Redfish virtual media
-openstack baremetal node set node-01 \
-  --properties deploy_isolabel="your-iso.iso"
-
-# 3. Use Redfish API or IPMI to mount the ISO
-# and boot from virtual media
-```
 
 ## 🔧 Configuration
 

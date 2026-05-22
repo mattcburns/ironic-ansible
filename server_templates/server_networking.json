@@ -1,0 +1,27 @@
+{
+    "links": [
+        {
+            "id": "<nic name>",
+            "type": "phy",
+            "ethernet_mac_address": ""
+        }
+    ],
+    "networks": [
+        {
+            "id": "port0",
+            "type": "ipv4",
+            "link": "<nic name (eth0)>",
+            "ip_address": "w.x.y.z",
+            "netmask": "255.255.255.240",
+            "network_id": "network0",
+            "routes": [
+                {
+                    "network": "0.0.0.0",
+                    "netmask": "0.0.0.0",
+                    "gateway": "w.x.y.z"
+                }
+            ]
+        }
+    ],
+    "services": []
+}
