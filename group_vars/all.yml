@@ -91,6 +91,7 @@ rabbitmq_data_dir: "/var/lib/ironic/rabbitmq"
 
 ironic_api_container_name: "ironic-api"
 ironic_api_port: 6385
+ironic_api_workers: 1
 
 # Authentication
 ironic_auth_strategy: "http_basic"
