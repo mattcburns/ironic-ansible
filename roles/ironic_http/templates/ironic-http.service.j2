@@ -12,16 +12,14 @@ RestartSec=10s
 
 ExecStartPre=-{{ docker_bin }} stop {{ ironic_http_container_name }}
 ExecStartPre=-{{ docker_bin }} rm {{ ironic_http_container_name }}
-ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}
+ExecStartPre=-{{ docker_bin }} pull {{ ironic_http_image }}
 
 ExecStart={{ docker_bin }} run --name {{ ironic_http_container_name }} \
     --rm \
     --network {{ docker_network_name }} \
-    -v {{ ironic_http_images_dir }}:/shared/html:ro,z \
-    -e HTTP_PORT=8080 \
-    -p {{ ironic_http_bind_addr }}:{{ ironic_http_port }}:8080 \
-    {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
-    runhttpd
+    -v {{ ironic_http_images_dir }}:/usr/share/nginx/html:ro,z \
+    -p {{ ironic_http_bind_addr }}:{{ ironic_http_port }}:80 \
+    {{ ironic_http_image }}
 
 ExecStop={{ docker_bin }} stop {{ ironic_http_container_name }}
 
