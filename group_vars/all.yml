@@ -125,6 +125,9 @@ ironic_conductor_replicas: 1
 # 100, but the calculated minimum depends on the number of enabled hardware
 # types and interfaces. 128 provides comfortable headroom.
 ironic_conductor_default_workers: 128
+
+# Enable automated cleaning when nodes move to available state.
+ironic_automated_clean: true
 # Advanced option: define conductor groups for targeted scheduling.
 # Leave this empty to use the simple default replica mode above.
 # Each group inherits ironic_conductor_default_workers unless an explicit

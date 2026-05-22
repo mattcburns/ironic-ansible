@@ -44,7 +44,7 @@ port = {{ ironic_api_port }}
 api_workers = {{ ironic_api_workers }}
 
 [conductor]
-automated_clean = false
+automated_clean = {{ 'true' if ironic_automated_clean | bool else 'false' }}
 inspect_wait_timeout = {{ ironic_inspect_timeout }}
 deploy_kernel = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_kernel_filename }}
 deploy_ramdisk = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_ramdisk_filename }}

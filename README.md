@@ -296,6 +296,9 @@ ironic_conductor_replicas: 1
 
 # Default green-thread pool size applied to every conductor instance.
 ironic_conductor_default_workers: 128
+
+# Enable automated cleaning when nodes move to available state.
+ironic_automated_clean: true
 ```
 
 Increase `ironic_conductor_replicas` to scale conductor instances in the default mode.
