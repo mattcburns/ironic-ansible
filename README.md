@@ -214,7 +214,7 @@ openstack --os-cloud ironic baremetal node list
 
 1. Enroll the node by creating it in the API: `ironic-cli node create --driver redfish --driver-info redfish_address=<redfish https endpoint> --driver-info redfish_username=<bmc user> --driver-info redfish_password=<bmc password> --driver-info redfish_verify_ca=False`
 1. Make the node manageable: `ironic-cli node manage <node id>`
-1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data /app/servers/<server>/network_data.json <node id>`
+1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data network_data.json <node id>`
 1. Make the node available for provisioning and trigger a cleaning: `ironic-cli node provide <node id>`
 1. Configure the OS to provision: `ironic-cli node set <node id> --instance-info image_source=<url to os image> --instance-info image_checksum=<os image sha256sum>`
 1. Provision the node: `ironic-cli node deploy <node id> --configdrive <some cloudinit json, optional>`
