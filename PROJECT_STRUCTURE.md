@@ -123,6 +123,7 @@ Installs a containerized CLI helper:
 - Writes `/etc/ironic/ironic-cli.env` with `OS_*` auth/endpoint defaults
 - Installs `/usr/local/bin/ironic-cli` wrapper script
 - Writes `/etc/openstack/clouds.yaml` with an `ironic` cloud profile for `--os-cloud`
+- Mounts the caller's current working directory into the CLI container at the same path
 - Runs OpenStack baremetal CLI inside `ghcr.io/mattcburns/ironic-cli:latest`
 
 ## Scripts

@@ -7,6 +7,7 @@ CLI_NETWORK="{{ ironic_cli_network_name }}"
 CLI_ENV_FILE="{{ ironic_cli_env_file }}"
 CLI_CLOUDS_YAML="{{ ironic_clouds_yaml_path }}"
 CLI_USER_OPENSTACK_DIR="/root/.config/openstack"
+CLI_CALLER_DIR="$(pwd -P)"
 
 if [[ ! -f "${CLI_ENV_FILE}" ]]; then
   echo "Missing ${CLI_ENV_FILE}. Re-run ansible-playbook playbooks/deploy.yml -i inventory."
@@ -31,6 +32,10 @@ Examples:
   ironic-cli baremetal node show <node>
   ironic-cli openstack --os-cloud ironic baremetal node list
   ironic-cli shell
+
+Notes:
+  The current working directory is mounted into the container at the same path,
+  so local files can be referenced directly from baremetal commands.
 EOF
   exit 1
 fi
@@ -52,6 +57,14 @@ fi
 if [[ -d "/etc/openstack" ]]; then
   VOLUME_ARGS+=( "-v" "/etc/openstack:/etc/openstack:ro" )
 fi
+if [[ -d "${CLI_CALLER_DIR}" ]]; then
+  VOLUME_ARGS+=( "-v" "${CLI_CALLER_DIR}:${CLI_CALLER_DIR}" )
+fi
+
+WORKDIR_ARGS=()
+if [[ -d "${CLI_CALLER_DIR}" ]]; then
+  WORKDIR_ARGS=( "-w" "${CLI_CALLER_DIR}" )
+fi
 
 TTY_ARGS=()
 if [[ -t 0 && -t 1 ]]; then
@@ -64,6 +77,7 @@ if [[ "$1" == "shell" ]]; then
     --network "${CLI_NETWORK}" \
     "${ENV_ARGS[@]}" \
     "${VOLUME_ARGS[@]}" \
+    "${WORKDIR_ARGS[@]}" \
     --entrypoint bash \
     "${CLI_IMAGE}" \
     "$@"
@@ -89,5 +103,6 @@ exec "${DOCKER_BIN}" run --rm "${TTY_ARGS[@]}" \
   --network "${CLI_NETWORK}" \
   "${ENV_ARGS[@]}" \
   "${VOLUME_ARGS[@]}" \
+  "${WORKDIR_ARGS[@]}" \
   "${CLI_IMAGE}" \
   "${CLI_COMMAND[@]}"

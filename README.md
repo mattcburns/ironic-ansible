@@ -198,6 +198,11 @@ ironic-cli openstack baremetal node show <node-id>
 ironic-cli shell
 ```
 
+`ironic-cli` bind-mounts your current working directory into the container at
+the same path and uses it as the container working directory, so local files
+such as `network-data.json` can be passed directly to baremetal commands that
+accept file path arguments.
+
 ### Use Native OpenStack CLI with Generated Cloud Profile
 
 ```bash

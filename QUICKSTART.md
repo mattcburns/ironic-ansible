@@ -84,6 +84,10 @@ ironic-cli node list
 openstack --os-cloud ironic baremetal node list
 ```
 
+`ironic-cli` mounts your current working directory into the container at the
+same path, so local files (for example `network-data.json`) can be referenced
+directly by baremetal commands that accept file path arguments.
+
 Expected output: `[]` (empty list of nodes)
 
 ### Step 5: Add Your First Node
