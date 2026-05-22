@@ -39,6 +39,13 @@
     - role: ironic_api
     - role: ironic_conductor
 
+- name: Deploy Containerized Ironic CLI Helper
+  hosts: ironic
+  become: true
+  gather_facts: false
+  roles:
+    - role: ironic_cli
+
 - name: Validate Deployment
   ansible.builtin.import_playbook: validate.yml
 
@@ -57,6 +64,8 @@
           - "MariaDB: localhost:{{ mariadb_port }}"
           - "RabbitMQ: localhost:{{ rabbitmq_amqp_port }}"
           - "RabbitMQ Management: http://localhost:{{ rabbitmq_management_port }}"
+          - "Containerized Ironic CLI: {{ ironic_cli_wrapper_path if (ironic_cli_enabled | bool) else 'disabled' }}"
           - "============================================"
-          - "Test: curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ ironic_api_port }}/v1/nodes"
+          - "Test API: curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ ironic_api_port }}/v1/nodes"
+          - "Test CLI: {{ (ironic_cli_wrapper_path ~ ' node list') if (ironic_cli_enabled | bool) else 'skipped (ironic_cli_enabled=false)' }}"
           - "============================================"

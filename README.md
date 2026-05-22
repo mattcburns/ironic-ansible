@@ -9,6 +9,7 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 - ✅ **No PXE/DHCP required**: Uses Redfish virtual media and HTTP boot
 - ✅ **Built-in inspection**: No separate ironic-inspector service needed
 - ✅ **HTTP Basic Auth**: Simple authentication with htpasswd
+- ✅ **Containerized CLI helper**: Run `openstack baremetal`/`ironic` via `ironic-cli` without host package installs
 - ✅ **Scalable conductors**: Systemd unit templates for dynamic conductor scaling
 - ✅ **Production-ready**: MariaDB and RabbitMQ for persistence and messaging
 
@@ -57,6 +58,7 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 | **Ironic API** | REST API for managing bare metal nodes | 6385 |
 | **Ironic HTTP** | Serves IPA images and boot ISOs | 6180 |
 | **Ironic Conductor** | Executes deployment tasks (scalable) | N/A |
+| **Ironic CLI Helper** | Wrapper script that runs CLI tools in a container | N/A |
 | **IPA Downloader** | Fetches Ironic Python Agent images | N/A |
 
 ## 📁 Repository Layout (Current)
@@ -81,6 +83,7 @@ The repository is organized around reusable Ansible roles and consolidated playb
     ├── ironic_common
     ├── ironic_http
     ├── ironic_api
+    ├── ironic_cli
     └── ironic_conductor
 ```
 
@@ -153,6 +156,9 @@ curl -u admin:<ironic_admin_password> http://localhost:6385/v1/nodes
 
 # Optional: run validation checks directly
 ansible-playbook playbooks/validate.yml -i inventory
+
+# Use the containerized CLI helper
+ironic-cli node list
 ```
 
 ## 📖 Usage
@@ -161,6 +167,19 @@ ansible-playbook playbooks/validate.yml -i inventory
 
 ```bash
 curl -u admin:<password> http://<hostname>:6385/v1/nodes
+```
+
+### Run Bare Metal Commands via Containerized CLI
+
+```bash
+# Defaults to: openstack baremetal <args>
+ironic-cli node list
+
+# Run explicit OpenStack CLI command
+ironic-cli openstack baremetal node show <node-id>
+
+# Run legacy ironic CLI command directly
+ironic-cli ironic --help
 ```
 
 ### Create a Node (via API)
@@ -238,6 +257,16 @@ rabbitmq_password: "secure_password"  # CHANGE IN PRODUCTION
 ```yaml
 ironic_api_port: 6385
 ironic_api_bind_addr: "0.0.0.0"  # or "127.0.0.1" for local only
+```
+
+### Containerized Ironic CLI Helper
+
+```yaml
+ironic_cli_enabled: true
+ironic_cli_wrapper_path: "/usr/local/bin/ironic-cli"
+ironic_cli_image: "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
+ironic_cli_endpoint: "http://{{ ironic_api_container_name }}:6385"
+ironic_cli_auth_type: "http_basic"  # or "none" when using noauth
 ```
 
 ### Boot Interfaces

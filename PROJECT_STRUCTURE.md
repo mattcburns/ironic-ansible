@@ -43,6 +43,11 @@ ironic-ansible/
 │   │   └── templates/
 │   │       └── ironic-http.service.j2 # Systemd unit for HTTP server
 │   │
+│   ├── ironic_cli/
+│   │   └── templates/
+│   │       ├── ironic-cli.env.j2      # Auth/endpoint env for CLI container
+│   │       └── ironic-cli.sh.j2       # Wrapper script (ironic-cli)
+│   │
 │   └── ironic_conductor/
 │       └── templates/
 │           ├── ironic-conductor@.service.j2  # Systemd unit template
@@ -109,6 +114,12 @@ Deploys scalable conductor instances:
 - Per-instance config override sets host, workers, and conductor group
 - Each instance gets a stable hostname (`--hostname ironic-conductor-<group>`)
 
+#### ironic_cli
+Installs a containerized CLI helper:
+- Writes `/etc/ironic/ironic-cli.env` with auth/endpoint defaults
+- Installs `/usr/local/bin/ironic-cli` wrapper script
+- Runs OpenStack/Ironic CLI inside a container to avoid host dependency installs
+
 ## Playbooks
 
 - **`deploy.yml`** — Full deployment: runs all roles in order, then validates
@@ -153,6 +164,10 @@ deploy.yml
   ├── ironic_conductor role
   │   ├── conductor-override.conf.j2 → /etc/ironic/conductor-<group>.conf
   │   └── ironic-conductor@.service.j2
+  │
+  ├── ironic_cli role
+  │   ├── ironic-cli.env.j2 → /etc/ironic/ironic-cli.env
+  │   └── ironic-cli.sh.j2 → /usr/local/bin/ironic-cli
   │
   └── validate.yml (health checks)
 ```

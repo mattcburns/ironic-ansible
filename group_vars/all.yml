@@ -21,6 +21,19 @@ docker_bin: "/usr/bin/docker"
 docker_network_name: "ironic-network"
 
 # -----------------------------------------------------------------------------
+# Containerized Ironic CLI Helper
+# -----------------------------------------------------------------------------
+
+ironic_cli_enabled: true
+ironic_cli_wrapper_path: "/usr/local/bin/ironic-cli"
+ironic_cli_env_file: "{{ ironic_etc_dir }}/ironic-cli.env"
+ironic_cli_image: "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
+ironic_cli_network_name: "{{ docker_network_name }}"
+ironic_cli_endpoint: "http://{{ ironic_api_container_name }}:6385"
+ironic_cli_auth_type: "{{ 'http_basic' if ironic_auth_strategy == 'http_basic' else 'none' }}"
+ironic_cli_baremetal_api_version: ""
+
+# -----------------------------------------------------------------------------
 # Service Account Configuration
 # -----------------------------------------------------------------------------
 

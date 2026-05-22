@@ -68,6 +68,9 @@ docker ps | grep ironic
 
 # Test Ironic API endpoint
 curl -u admin:YOUR_IRONIC_ADMIN_PASSWORD http://localhost:6385/v1/nodes
+
+# Test containerized CLI helper (defaults to openstack baremetal)
+ironic-cli node list
 ```
 
 Expected output: `[]` (empty list of nodes)
@@ -125,6 +128,9 @@ curl -X GET \
 curl -X GET \
   -u admin:YOUR_IRONIC_ADMIN_PASSWORD \
   http://localhost:6385/v1/nodes/node-01
+
+# Optional: equivalent CLI helper command
+ironic-cli node inspect node-01
 ```
 
 ### Step 7: Deploy Operating System

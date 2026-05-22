@@ -8,14 +8,16 @@
   vars:
     rollback_remove_container_images: true
     rollback_remove_prerequisite_packages: true
+    rollback_images:
+      - "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
+      - "{{ ironic_http_image }}"
+      - "{{ mariadb_image }}"
+      - "{{ rabbitmq_image }}"
+      - "{{ ironic_cli_image }}"
   tasks:
     - name: Remove deployment container images
       ansible.builtin.command: "{{ docker_bin }} image rm -f {{ item }}"
-      loop:
-        - "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
-        - "{{ ironic_http_image }}"
-        - "{{ mariadb_image }}"
-        - "{{ rabbitmq_image }}"
+      loop: "{{ rollback_images | unique }}"
       register: rollback_image_remove
       failed_when: false
       changed_when: rollback_image_remove.rc == 0
