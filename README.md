@@ -9,7 +9,7 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 - ✅ **No PXE/DHCP required**: Uses Redfish virtual media and HTTP boot
 - ✅ **Built-in inspection**: No separate ironic-inspector service needed
 - ✅ **HTTP Basic Auth**: Simple authentication with htpasswd
-- ✅ **Containerized CLI helper**: Run `openstack baremetal`/`ironic` via `ironic-cli` without host package installs
+- ✅ **Containerized CLI helper**: Run `openstack baremetal` via `ironic-cli` without host package installs
 - ✅ **Generated `clouds.yaml` profile**: Ansible writes `/etc/openstack/clouds.yaml` for `--os-cloud` auth
 - ✅ **Scalable conductors**: Systemd unit templates for dynamic conductor scaling
 - ✅ **Production-ready**: MariaDB and RabbitMQ for persistence and messaging
@@ -182,8 +182,8 @@ ironic-cli node list
 # Run explicit OpenStack CLI command
 ironic-cli openstack baremetal node show <node-id>
 
-# Run legacy ironic CLI command directly
-ironic-cli ironic --help
+# Open an interactive shell in the CLI container
+ironic-cli shell
 ```
 
 ### Use Native OpenStack CLI with Generated Cloud Profile
@@ -275,9 +275,10 @@ ironic_api_bind_addr: "0.0.0.0"  # or "127.0.0.1" for local only
 ```yaml
 ironic_cli_enabled: true
 ironic_cli_wrapper_path: "/usr/local/bin/ironic-cli"
-ironic_cli_image: "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
-ironic_cli_endpoint: "http://{{ ironic_api_container_name }}:6385"
-ironic_cli_auth_type: "http_basic"  # or "none" when using noauth
+ironic_cli_image: "ghcr.io/mattcburns/ironic-cli:latest"
+ironic_cli_network_name: "host"
+ironic_cli_endpoint: "http://127.0.0.1:{{ ironic_api_port }}"
+ironic_cli_auth_type: "http_basic"  # or "v3password" / "none"
 ```
 
 ### OpenStack clouds.yaml Profile

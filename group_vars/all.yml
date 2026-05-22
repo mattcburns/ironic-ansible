@@ -27,10 +27,13 @@ docker_network_name: "ironic-network"
 ironic_cli_enabled: true
 ironic_cli_wrapper_path: "/usr/local/bin/ironic-cli"
 ironic_cli_env_file: "{{ ironic_etc_dir }}/ironic-cli.env"
-ironic_cli_image: "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
-ironic_cli_network_name: "{{ docker_network_name }}"
-ironic_cli_endpoint: "http://{{ ironic_api_container_name }}:6385"
-ironic_cli_auth_type: "{{ 'http_basic' if ironic_auth_strategy == 'http_basic' else 'none' }}"
+# Dedicated OpenStack/Ironic CLI image with baremetal + keystone client plugins
+ironic_cli_image: "ghcr.io/mattcburns/ironic-cli:latest"
+# Host networking aligns with the upstream wrapper behavior for local endpoint reachability
+ironic_cli_network_name: "host"
+# CLI from the host should target the published API port
+ironic_cli_endpoint: "http://127.0.0.1:{{ ironic_api_port }}"
+ironic_cli_auth_type: "{{ 'http_basic' if ironic_auth_strategy == 'http_basic' else ('v3password' if keystone_enabled | bool else 'none') }}"
 ironic_cli_baremetal_api_version: ""
 
 # -----------------------------------------------------------------------------

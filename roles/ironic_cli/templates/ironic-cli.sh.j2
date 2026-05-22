@@ -5,42 +5,89 @@ DOCKER_BIN="{{ docker_bin }}"
 CLI_IMAGE="{{ ironic_cli_image }}"
 CLI_NETWORK="{{ ironic_cli_network_name }}"
 CLI_ENV_FILE="{{ ironic_cli_env_file }}"
-IRONIC_ETC_DIR="{{ ironic_etc_dir }}"
+CLI_CLOUDS_YAML="{{ ironic_clouds_yaml_path }}"
+CLI_USER_OPENSTACK_DIR="/root/.config/openstack"
 
 if [[ ! -f "${CLI_ENV_FILE}" ]]; then
   echo "Missing ${CLI_ENV_FILE}. Re-run ansible-playbook playbooks/deploy.yml -i inventory."
+  exit 1
+fi
+if ! "${DOCKER_BIN}" image inspect "${CLI_IMAGE}" >/dev/null 2>&1; then
+  echo "Error: Docker image ${CLI_IMAGE} not found."
+  echo "Re-run ansible-playbook playbooks/deploy.yml -i inventory to refresh CLI configuration."
   exit 1
 fi
 
 if [[ $# -eq 0 ]]; then
   cat <<'EOF'
 Usage:
-  ironic-cli <baremetal-subcommand...>
-  ironic-cli openstack baremetal <subcommand...>
-  ironic-cli ironic <subcommand...>
+  ironic-cli <subcommand...>
+  ironic-cli baremetal <subcommand...>
+  ironic-cli openstack <subcommand...>
+  ironic-cli shell
 
 Examples:
   ironic-cli node list
-  ironic-cli openstack baremetal node show <node>
-  ironic-cli ironic --help
+  ironic-cli baremetal node show <node>
+  ironic-cli openstack --os-cloud ironic baremetal node list
+  ironic-cli shell
 EOF
   exit 1
 fi
 
-if [[ "$1" == "openstack" || "$1" == "ironic" ]]; then
-  CLI_COMMAND=( "$@" )
-else
-  CLI_COMMAND=( "openstack" "baremetal" "$@" )
+ENV_ARGS=( "--env-file" "${CLI_ENV_FILE}" )
+while IFS='=' read -r name _; do
+  if [[ "${name}" == OS_* ]]; then
+    ENV_ARGS+=( "-e" "${name}" )
+  fi
+done < <(env)
+
+VOLUME_ARGS=()
+if [[ -f "${CLI_CLOUDS_YAML}" ]]; then
+  VOLUME_ARGS+=( "-v" "${CLI_CLOUDS_YAML}:${CLI_USER_OPENSTACK_DIR}/clouds.yaml:ro" )
+fi
+if [[ -d "${HOME}/.config/openstack" ]]; then
+  VOLUME_ARGS+=( "-v" "${HOME}/.config/openstack:${CLI_USER_OPENSTACK_DIR}:ro" )
+fi
+if [[ -d "/etc/openstack" ]]; then
+  VOLUME_ARGS+=( "-v" "/etc/openstack:/etc/openstack:ro" )
 fi
 
 TTY_ARGS=()
 if [[ -t 0 && -t 1 ]]; then
   TTY_ARGS=( "-it" )
 fi
+if [[ "$1" == "shell" ]]; then
+  shift
+  exec "${DOCKER_BIN}" run --rm "${TTY_ARGS[@]}" \
+    --user 0:0 \
+    --network "${CLI_NETWORK}" \
+    "${ENV_ARGS[@]}" \
+    "${VOLUME_ARGS[@]}" \
+    --entrypoint bash \
+    "${CLI_IMAGE}" \
+    "$@"
+fi
+
+if [[ "$1" == "openstack" ]]; then
+  shift
+fi
+
+if [[ $# -eq 0 ]]; then
+  echo "Missing subcommand. Run 'ironic-cli baremetal node list' or 'ironic-cli shell'."
+  exit 1
+fi
+
+if [[ "$1" == "baremetal" ]]; then
+  CLI_COMMAND=( "$@" )
+else
+  CLI_COMMAND=( "baremetal" "$@" )
+fi
 
 exec "${DOCKER_BIN}" run --rm "${TTY_ARGS[@]}" \
+  --user 0:0 \
   --network "${CLI_NETWORK}" \
-  --env-file "${CLI_ENV_FILE}" \
-  -v "${IRONIC_ETC_DIR}:/etc/ironic:ro,z" \
+  "${ENV_ARGS[@]}" \
+  "${VOLUME_ARGS[@]}" \
   "${CLI_IMAGE}" \
   "${CLI_COMMAND[@]}"

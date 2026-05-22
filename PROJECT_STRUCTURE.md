@@ -117,10 +117,10 @@ Deploys scalable conductor instances:
 
 #### ironic_cli
 Installs a containerized CLI helper:
-- Writes `/etc/ironic/ironic-cli.env` with auth/endpoint defaults
+- Writes `/etc/ironic/ironic-cli.env` with `OS_*` auth/endpoint defaults
 - Installs `/usr/local/bin/ironic-cli` wrapper script
-- Writes `/etc/openstack/clouds.yaml` with an `ironic` cloud profile
-- Runs OpenStack/Ironic CLI inside a container to avoid host dependency installs
+- Writes `/etc/openstack/clouds.yaml` with an `ironic` cloud profile for `--os-cloud`
+- Runs OpenStack baremetal CLI inside `ghcr.io/mattcburns/ironic-cli:latest`
 
 ## Playbooks
 
