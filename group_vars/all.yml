@@ -119,9 +119,9 @@ ironic_http_images_dir: "/var/lib/ironic/http-images"
 
 ironic_conductor_groups:
   - name: "group1"
-    workers: 4
+    workers: 32
   - name: "group2"
-    workers: 4
+    workers: 32
 
 # -----------------------------------------------------------------------------
 # Ironic Driver & Interface Configuration
