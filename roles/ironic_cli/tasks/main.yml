@@ -2,6 +2,10 @@
 - name: Configure containerized Ironic CLI helper
   when: ironic_cli_enabled | bool
   block:
+    - name: Pull Ironic CLI container image
+      community.docker.docker_image:
+        name: "{{ ironic_cli_image }}"
+        source: pull
     - name: Deploy Ironic CLI environment file
       ansible.builtin.template:
         src: ironic-cli.env.j2
