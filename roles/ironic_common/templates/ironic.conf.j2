@@ -37,6 +37,7 @@ default_inspect_interface = {{ ironic_default_inspect_interface }}
 enabled_management_interfaces = {{ ironic_enabled_management_interfaces }}
 enabled_power_interfaces = {{ ironic_enabled_power_interfaces }}
 enabled_raid_interfaces = {{ ironic_enabled_raid_interfaces }}
+grub_config_path = {{ ironic_grub_config_path }}
 
 [api]
 host_ip = {{ ironic_api_bind_addr }}
@@ -46,6 +47,8 @@ api_workers = {{ ironic_api_workers }}
 [conductor]
 automated_clean = {{ 'true' if ironic_automated_clean | bool else 'false' }}
 inspect_wait_timeout = {{ ironic_inspect_timeout }}
+bootloader = {{ ironic_bootloader }}
+bootloader_by_arch = {{ ironic_bootloader_by_arch }}
 deploy_kernel = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_kernel_filename }}
 deploy_ramdisk = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_ramdisk_filename }}
 

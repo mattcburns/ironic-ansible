@@ -154,6 +154,12 @@ ironic_default_boot_interface: "redfish-virtual-media"
 ironic_enabled_deploy_interfaces: "direct,ramdisk"
 ironic_default_deploy_interface: "ramdisk"
 
+# UEFI virtual media boot ISO support (aligned with upstream metal3-io/ironic)
+# The Metal3 image ships architecture-specific ESP images under /templates.
+ironic_grub_config_path: "EFI/centos/grub.cfg"
+ironic_bootloader: "file:///templates/uefi_esp_{{ ansible_architecture | default('x86_64') }}.img"
+ironic_bootloader_by_arch: "x86_64:file:///templates/uefi_esp_x86_64.img,aarch64:file:///templates/uefi_esp_aarch64.img"
+
 # Network: noop for standalone (no Neutron)
 ironic_enabled_network_interfaces: "noop"
 ironic_default_network_interface: "noop"
