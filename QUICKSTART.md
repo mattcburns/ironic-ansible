@@ -189,6 +189,15 @@ docker logs ironic-api
 docker logs ironic-mariadb
 ```
 
+## 🔁 Reset to a Clean Host
+
+```bash
+ansible-playbook playbooks/rollback.yml -i inventory
+```
+
+This removes deployed services/data and also removes deployment images plus the
+htpasswd prerequisite package so the next deploy starts from a clean slate.
+
 ## 🎓 Next Steps
 
 1. **Configure Firewall**: Open ports for external access

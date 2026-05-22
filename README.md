@@ -71,7 +71,8 @@ The repository is organized around reusable Ansible roles and consolidated playb
 │   ├── deploy.yml
 │   ├── validate.yml
 │   ├── upgrade.yml
-│   └── destroy.yml
+│   ├── destroy.yml
+│   └── rollback.yml
 └── roles/
     ├── common
     ├── mariadb
@@ -377,7 +378,7 @@ ansible-playbook playbooks/upgrade.yml -i inventory
 
 ```bash
 # 1. Stop and clean up
-ansible-playbook playbooks/destroy.yml -i inventory
+ansible-playbook playbooks/rollback.yml -i inventory
 
 # 2. Update configuration as needed
 
@@ -387,7 +388,7 @@ ansible-playbook playbooks/deploy.yml -i inventory
 
 ## 🧹 Cleanup
 
-Remove all components:
+Remove deployed services and data:
 
 ```bash
 ansible-playbook playbooks/destroy.yml -i inventory
@@ -398,6 +399,12 @@ This will:
 - Remove all containers
 - Delete data directories
 - Clean up systemd units
+
+For a full host rollback (including deployment images and the htpasswd prerequisite package), run:
+
+```bash
+ansible-playbook playbooks/rollback.yml -i inventory
+```
 
 ## 📚 References
 

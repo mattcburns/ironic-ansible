@@ -52,7 +52,8 @@ ironic-ansible/
     ├── deploy.yml                     # Full deployment (roles + validate)
     ├── validate.yml                   # Health checks for all services
     ├── upgrade.yml                    # Rolling upgrade to new version
-    └── destroy.yml                    # Complete teardown
+    ├── destroy.yml                    # Service/data teardown
+    └── rollback.yml                   # Full host rollback
 ```
 
 ## Roles
@@ -114,6 +115,7 @@ Deploys scalable conductor instances:
 - **`validate.yml`** — Checks systemd services, ports, and API health
 - **`upgrade.yml`** — Stops Ironic services, re-deploys config/images, restarts
 - **`destroy.yml`** — Stops all services, removes containers/units/data/user
+- **`rollback.yml`** — Runs `destroy.yml` and removes deployment images/prerequisite package
 
 ## Deployment Flow
 
