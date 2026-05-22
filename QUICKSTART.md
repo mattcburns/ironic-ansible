@@ -71,6 +71,9 @@ curl -u admin:YOUR_IRONIC_ADMIN_PASSWORD http://localhost:6385/v1/nodes
 
 # Test containerized CLI helper (defaults to openstack baremetal)
 ironic-cli node list
+
+# If openstackclient is installed on host, use generated /etc/openstack/clouds.yaml
+openstack --os-cloud ironic baremetal node list
 ```
 
 Expected output: `[]` (empty list of nodes)

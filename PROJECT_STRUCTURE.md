@@ -46,7 +46,8 @@ ironic-ansible/
 │   ├── ironic_cli/
 │   │   └── templates/
 │   │       ├── ironic-cli.env.j2      # Auth/endpoint env for CLI container
-│   │       └── ironic-cli.sh.j2       # Wrapper script (ironic-cli)
+│   │       ├── ironic-cli.sh.j2       # Wrapper script (ironic-cli)
+│   │       └── clouds.yaml.j2         # OpenStack cloud profile for --os-cloud auth
 │   │
 │   └── ironic_conductor/
 │       └── templates/
@@ -118,6 +119,7 @@ Deploys scalable conductor instances:
 Installs a containerized CLI helper:
 - Writes `/etc/ironic/ironic-cli.env` with auth/endpoint defaults
 - Installs `/usr/local/bin/ironic-cli` wrapper script
+- Writes `/etc/openstack/clouds.yaml` with an `ironic` cloud profile
 - Runs OpenStack/Ironic CLI inside a container to avoid host dependency installs
 
 ## Playbooks
@@ -167,7 +169,8 @@ deploy.yml
   │
   ├── ironic_cli role
   │   ├── ironic-cli.env.j2 → /etc/ironic/ironic-cli.env
-  │   └── ironic-cli.sh.j2 → /usr/local/bin/ironic-cli
+  │   ├── ironic-cli.sh.j2 → /usr/local/bin/ironic-cli
+  │   └── clouds.yaml.j2 → /etc/openstack/clouds.yaml
   │
   └── validate.yml (health checks)
 ```

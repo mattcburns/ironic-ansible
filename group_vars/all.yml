@@ -34,6 +34,16 @@ ironic_cli_auth_type: "{{ 'http_basic' if ironic_auth_strategy == 'http_basic' e
 ironic_cli_baremetal_api_version: ""
 
 # -----------------------------------------------------------------------------
+# OpenStack clouds.yaml (for native --os-cloud authentication)
+# -----------------------------------------------------------------------------
+
+ironic_clouds_yaml_enabled: true
+ironic_clouds_yaml_path: "/etc/openstack/clouds.yaml"
+ironic_cloud_name: "ironic"
+ironic_cloud_interface: "public"
+ironic_cloud_region_name: "RegionOne"
+
+# -----------------------------------------------------------------------------
 # Service Account Configuration
 # -----------------------------------------------------------------------------
 

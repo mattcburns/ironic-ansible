@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+clouds:
+  {{ ironic_cloud_name }}:
+    auth_type: "{{ ironic_cli_auth_type }}"
+    auth:
+      endpoint: "{{ ironic_cli_endpoint }}"
+{% if ironic_cli_auth_type == 'http_basic' %}
+      username: "{{ ironic_admin_username }}"
+      password: "{{ ironic_admin_password }}"
+{% endif %}
+    baremetal_endpoint_override: "{{ ironic_cli_endpoint }}"
+    interface: "{{ ironic_cloud_interface }}"
+    region_name: "{{ ironic_cloud_region_name }}"
+{% if ironic_cli_baremetal_api_version | length > 0 %}
+    baremetal_api_version: "{{ ironic_cli_baremetal_api_version }}"
+{% endif %}
