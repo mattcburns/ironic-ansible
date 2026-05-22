@@ -60,8 +60,7 @@ systemctl status ironic-mariadb
 systemctl status ironic-rabbitmq
 systemctl status ironic-api
 systemctl status ironic-http
-systemctl status ironic-conductor@group1
-systemctl status ironic-conductor@group2
+systemctl status ironic-conductor@1
 
 # Check Docker containers
 docker ps | grep ironic
@@ -212,6 +211,8 @@ htpasswd prerequisite package so the next deploy starts from a clean slate.
 1. **Configure Firewall**: Open ports for external access
 2. **Enable SSL/TLS**: For production deployments
 3. **Scale Conductors**: Add more conductor instances
+   - Set `ironic_conductor_replicas` in `group_vars/all.yml`
+   - Use `ironic_conductor_groups` only for advanced targeted scheduling
 4. **Integrate Keystone**: For enterprise authentication
 5. **Set up Monitoring**: Prometheus, Grafana
 
@@ -227,7 +228,7 @@ htpasswd prerequisite package so the next deploy starts from a clean slate.
 ```bash
 # View deployment logs
 journalctl -u ironic-api -n 50
-journalctl -u ironic-conductor@group1 -n 50
+journalctl -u ironic-conductor@1 -n 50
 
 # Check container health
 docker ps -a

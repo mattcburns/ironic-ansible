@@ -13,6 +13,11 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 - ✅ **Generated `clouds.yaml` profile**: Ansible writes `/etc/openstack/clouds.yaml` for `--os-cloud` auth
 - ✅ **Scalable conductors**: Systemd unit templates for dynamic conductor scaling
 - ✅ **Production-ready**: MariaDB and RabbitMQ for persistence and messaging
+## ⚠️ Compatibility Policy
+
+This project currently prioritizes deployment simplicity over backward compatibility.
+Defaults and variable shapes may change between iterations, so review `group_vars/all.yml`
+and docs before applying updates to existing environments.
 
 ## 📋 Prerequisites
 
@@ -149,8 +154,7 @@ systemctl status ironic-mariadb
 systemctl status ironic-rabbitmq
 systemctl status ironic-api
 systemctl status ironic-http
-systemctl status ironic-conductor@group1
-systemctl status ironic-conductor@group2
+systemctl status ironic-conductor@1
 
 # Test Ironic API
 curl -u admin:<ironic_admin_password> http://localhost:6385/v1/nodes
@@ -304,22 +308,33 @@ ironic_enabled_inspect_interfaces: "agent,no-inspect"
 ironic_default_inspect_interface: "agent"
 ```
 
-### Conductor Groups
+### Conductor Scaling (Simple Default)
 
 ```yaml
-# Default green-thread pool size applied to every conductor.
-ironic_conductor_default_workers: 128
+ironic_conductor_replicas: 1
 
+# Default green-thread pool size applied to every conductor instance.
+ironic_conductor_default_workers: 128
+```
+
+Increase `ironic_conductor_replicas` to scale conductor instances in the default mode.
+Instances are named `ironic-conductor@1`, `ironic-conductor@2`, and so on.
+
+### Advanced: Conductor Groups (Optional)
+
+```yaml
 ironic_conductor_groups:
   - name: "group1"                # uses ironic_conductor_default_workers
   - name: "group2"
     workers: 256                   # per-group override
 ```
 
-Each conductor inherits `ironic_conductor_default_workers` unless an explicit
-`workers` value is set on the group entry. The pool size must exceed the
-minimum Ironic calculates from the number of enabled hardware types and
-interfaces; 128 provides comfortable headroom for the default driver set.
+Set `ironic_conductor_groups` only when you need targeted scheduling via
+`conductor_group`. In grouped mode, each group inherits
+`ironic_conductor_default_workers` unless an explicit `workers` value is set.
+The pool size must exceed the minimum Ironic calculates from the number of
+enabled hardware types and interfaces; 128 provides comfortable headroom for
+the default driver set.
 
 ## 🔐 Security Considerations
 
@@ -373,11 +388,11 @@ The deployment creates a dedicated Docker bridge network named `ironic-network`.
 journalctl -u ironic-api -f
 
 # Conductor logs
-journalctl -u ironic-conductor@group1 -f
+journalctl -u ironic-conductor@1 -f
 
 # Check container logs
 docker logs ironic-api
-docker logs ironic-conductor-group1
+docker logs ironic-conductor-1
 ```
 
 ### RabbitMQ Management UI

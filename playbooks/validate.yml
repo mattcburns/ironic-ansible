@@ -15,7 +15,17 @@
       changed_when: false
       failed_when: false
 
-    - name: Check conductor service status
+    - name: Check conductor service status (default replica mode)
+      ansible.builtin.command: "systemctl is-active ironic-conductor@{{ item }}"
+      register: conductor_checks
+      loop: "{{ range(1, (ironic_conductor_replicas | int) + 1) | list }}"
+      loop_control:
+        label: "{{ item }}"
+      changed_when: false
+      failed_when: false
+      when: (ironic_conductor_groups | default([])) | length == 0
+
+    - name: Check conductor service status (advanced grouped mode)
       ansible.builtin.command: "systemctl is-active ironic-conductor@{{ item.name }}"
       register: conductor_checks
       loop: "{{ ironic_conductor_groups }}"
@@ -23,6 +33,7 @@
         label: "{{ item.name }}"
       changed_when: false
       failed_when: false
+      when: (ironic_conductor_groups | default([])) | length > 0
 
     - name: Verify ports are listening
       ansible.builtin.wait_for:
@@ -53,6 +64,6 @@
           - "Validation Results"
           - "============================================"
           - "{% for r in service_checks.results %}{{ r.item }}: {{ 'OK' if r.rc == 0 else 'FAILED' }}  {% endfor %}"
-          - "{% for r in conductor_checks.results %}conductor@{{ r.item.name }}: {{ 'OK' if r.rc == 0 else 'FAILED' }}  {% endfor %}"
+          - "{% for r in conductor_checks.results %}conductor@{{ r.item.name if r.item is mapping else r.item }}: {{ 'OK' if r.rc == 0 else 'FAILED' }}  {% endfor %}"
           - "API Health: {{ 'Reachable' if api_health.status is defined and api_health.status in [200, 401, 403] else 'Unreachable' }}"
           - "============================================"

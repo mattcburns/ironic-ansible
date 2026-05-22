@@ -116,19 +116,25 @@ ironic_http_images_dir: "/var/lib/ironic/http-images"
 # -----------------------------------------------------------------------------
 # Ironic Conductor Configuration
 # -----------------------------------------------------------------------------
+# Number of conductor instances to run in the default (non-grouped) mode.
+# Increase this value to scale conductors horizontally.
+ironic_conductor_replicas: 1
 
 # Default green-thread pool size per conductor. Ironic's upstream default is
 # 100, but the calculated minimum depends on the number of enabled hardware
 # types and interfaces. 128 provides comfortable headroom.
 ironic_conductor_default_workers: 128
-
+# Advanced option: define conductor groups for targeted scheduling.
+# Leave this empty to use the simple default replica mode above.
 # Each group inherits ironic_conductor_default_workers unless an explicit
-# 'workers' key is provided, e.g.:
+# 'workers' key is provided.
+ironic_conductor_groups: []
+
+# Example advanced grouped mode:
+# ironic_conductor_groups:
 #   - name: "group1"
+#   - name: "group2"
 #     workers: 256
-ironic_conductor_groups:
-  - name: "group1"
-  - name: "group2"
 
 # -----------------------------------------------------------------------------
 # Ironic Driver & Interface Configuration

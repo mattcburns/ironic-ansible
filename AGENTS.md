@@ -39,6 +39,11 @@ Follow these rules to keep changes safe, minimal, idempotent, and easy to review
 
 ## Development Rules
 
+### Backward Compatibility Policy
+- Backward compatibility is not a current project goal.
+- Prefer simplified defaults and behavior over compatibility shims unless the user explicitly asks otherwise.
+- Breaking changes are acceptable when the same change keeps code, playbooks, and docs internally consistent.
+
 ### General
 - Keep changes minimal and scoped to the requested task.
 - Preserve idempotency in roles and playbooks.

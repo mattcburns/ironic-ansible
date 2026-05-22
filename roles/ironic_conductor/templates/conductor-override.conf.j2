@@ -2,8 +2,10 @@
 # Loaded AFTER the main ironic.conf; values here take precedence.
 
 [DEFAULT]
-host = ironic-conductor-{{ item.name }}
+host = ironic-conductor-{{ conductor_instance_name }}
 
 [conductor]
-workers_pool_size = {{ item.workers | default(ironic_conductor_default_workers) }}
-conductor_group = {{ item.name }}
+workers_pool_size = {{ conductor_workers_pool_size }}
+{% if conductor_group_name | default('') %}
+conductor_group = {{ conductor_group_name }}
+{% endif %}

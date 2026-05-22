@@ -1,5 +1,21 @@
 ---
-- name: Generate per-conductor config overrides
+- name: Generate per-conductor config overrides (default replica mode)
+  ansible.builtin.template:
+    src: conductor-override.conf.j2
+    dest: "{{ ironic_etc_dir }}/conductor-{{ item }}.conf"
+    mode: '0640'
+    owner: "{{ ironic_service_user }}"
+    group: "{{ ironic_service_group }}"
+  loop: "{{ range(1, (ironic_conductor_replicas | int) + 1) | list }}"
+  loop_control:
+    label: "{{ item }}"
+  vars:
+    conductor_instance_name: "{{ item }}"
+    conductor_workers_pool_size: "{{ ironic_conductor_default_workers }}"
+    conductor_group_name: ""
+  when: (ironic_conductor_groups | default([])) | length == 0
+
+- name: Generate per-conductor config overrides (advanced grouped mode)
   ansible.builtin.template:
     src: conductor-override.conf.j2
     dest: "{{ ironic_etc_dir }}/conductor-{{ item.name }}.conf"
@@ -9,6 +25,11 @@
   loop: "{{ ironic_conductor_groups }}"
   loop_control:
     label: "{{ item.name }}"
+  vars:
+    conductor_instance_name: "{{ item.name }}"
+    conductor_workers_pool_size: "{{ item.workers | default(ironic_conductor_default_workers) }}"
+    conductor_group_name: "{{ item.name }}"
+  when: (ironic_conductor_groups | default([])) | length > 0
 
 - name: Deploy Ironic conductor systemd template unit
   ansible.builtin.template:
@@ -20,7 +41,18 @@
 - name: Flush handlers
   ansible.builtin.meta: flush_handlers
 
-- name: Enable and start conductor instances
+- name: Enable and start conductor instances (default replica mode)
+  ansible.builtin.systemd:
+    name: "ironic-conductor@{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ range(1, (ironic_conductor_replicas | int) + 1) | list }}"
+  loop_control:
+    label: "{{ item }}"
+  when: (ironic_conductor_groups | default([])) | length == 0
+
+- name: Enable and start conductor instances (advanced grouped mode)
   ansible.builtin.systemd:
     name: "ironic-conductor@{{ item.name }}"
     enabled: true
@@ -29,3 +61,4 @@
   loop: "{{ ironic_conductor_groups }}"
   loop_control:
     label: "{{ item.name }}"
+  when: (ironic_conductor_groups | default([])) | length > 0

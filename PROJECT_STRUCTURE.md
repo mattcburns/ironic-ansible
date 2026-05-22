@@ -112,8 +112,9 @@ Deploys HTTP server for IPA images and boot ISOs:
 #### ironic_conductor
 Deploys scalable conductor instances:
 - Systemd template unit (`ironic-conductor@.service`)
-- Per-instance config override sets host, workers, and conductor group
-- Each instance gets a stable hostname (`--hostname ironic-conductor-<group>`)
+- Per-instance config override sets host and worker pool size
+- Optional advanced grouped mode also sets `conductor_group`
+- Each instance gets a stable hostname (`--hostname ironic-conductor-<instance>`)
 
 #### ironic_cli
 Installs a containerized CLI helper:
@@ -164,7 +165,7 @@ deploy.yml
   │   └── ironic-api.service.j2
   │
   ├── ironic_conductor role
-  │   ├── conductor-override.conf.j2 → /etc/ironic/conductor-<group>.conf
+  │   ├── conductor-override.conf.j2 → /etc/ironic/conductor-<instance>.conf
   │   └── ironic-conductor@.service.j2
   │
   ├── ironic_cli role
@@ -175,19 +176,14 @@ deploy.yml
   └── validate.yml (health checks)
 ```
 
-## Scaling Conductors
+## Scaling Conductors (Simple Default)
 
 To add more conductor instances:
 
 1. Edit `group_vars/all.yml`:
 ```yaml
-ironic_conductor_groups:
-  - name: "group1"
-    workers: 4
-  - name: "group2"
-    workers: 4
-  - name: "group3"  # Add new group
-    workers: 4
+ironic_conductor_replicas: 3
+ironic_conductor_default_workers: 128
 ```
 
 2. Deploy:
@@ -197,11 +193,25 @@ ansible-playbook playbooks/deploy.yml -i inventory
 
 3. Verify:
 ```bash
-systemctl status ironic-conductor@group3
+systemctl status ironic-conductor@3
 ```
 
-Each conductor group gets its own `conductor_group` assignment in Ironic, so
-nodes can be targeted to specific conductors via the `conductor_group` property.
+Instances are named `ironic-conductor@1`, `@2`, `@3`, and so on.
+
+## Advanced: Conductor Groups
+
+Use grouped conductors only when you need targeted scheduling:
+
+```yaml
+ironic_conductor_groups:
+  - name: "group1"
+    workers: 128
+  - name: "group2"
+    workers: 256
+```
+
+In grouped mode, each group gets its own `conductor_group` assignment in Ironic,
+so nodes can be targeted via the node `conductor_group` property.
 
 ## Customization Points
 

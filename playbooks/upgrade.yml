@@ -4,7 +4,17 @@
   become: true
   gather_facts: true
   tasks:
-    - name: Stop conductor instances
+    - name: Stop conductor instances (default replica mode)
+      ansible.builtin.systemd:
+        name: "ironic-conductor@{{ item }}"
+        state: stopped
+      loop: "{{ range(1, (ironic_conductor_replicas | int) + 1) | list }}"
+      loop_control:
+        label: "{{ item }}"
+      ignore_errors: true
+      when: (ironic_conductor_groups | default([])) | length == 0
+
+    - name: Stop conductor instances (advanced grouped mode)
       ansible.builtin.systemd:
         name: "ironic-conductor@{{ item.name }}"
         state: stopped
@@ -12,6 +22,7 @@
       loop_control:
         label: "{{ item.name }}"
       ignore_errors: true
+      when: (ironic_conductor_groups | default([])) | length > 0
 
     - name: Stop core services
       ansible.builtin.systemd:

@@ -50,8 +50,10 @@ localhost ansible_connection=local
 # [ironic-api:vars]
 # ironic_api_port=6385
 
-# [ironic-conductors:vars]
-# ironic_conductor_workers=8
+# [ironic:vars]
+# ironic_conductor_replicas=2
+# ironic_conductor_default_workers=128
+# For advanced grouped mode, define ironic_conductor_groups in group_vars/all.yml.
 
 # -----------------------------------------------------------------------------
 # Using host overrides
