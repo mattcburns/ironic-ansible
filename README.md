@@ -127,9 +127,9 @@ additional customization:
 # Optional: set a custom length before running, for example:
 # PASSWORD_LENGTH=48 ./scripts/generate-passwords.sh
 
-# Optional: Change image versions
+# Optional: Override image versions
 ironic_image_repo: "quay.io/metal3-io"
-ironic_image_tag: "latest"  # or pin to a release tag (e.g. v34.0.0)
+ironic_image_tag: "v35.0.0"  # pinned default; bump intentionally during upgrades
 ```
 
 ### 4. Set Up Inventory
@@ -228,7 +228,7 @@ All configuration is centralized in `group_vars/all.yml`. Key sections:
 
 ```yaml
 ironic_image_repo: "quay.io/metal3-io"
-ironic_image_tag: "latest"  # Pin a release tag for reproducibility
+ironic_image_tag: "v35.0.0"  # pinned stable default
 mariadb_image: "mariadb:11.4"
 rabbitmq_image: "rabbitmq:3.13-management"
 ```
@@ -435,7 +435,7 @@ curl -u ironic:<rabbitmq_password> http://localhost:15672/api/queues
 
 ```bash
 # 1. Update image tag in group_vars/all.yml
-# ironic_image_tag: "2024.3"
+# ironic_image_tag: "v36.0.0"
 
 # 2. Run upgrade playbook
 ansible-playbook playbooks/upgrade.yml -i inventory

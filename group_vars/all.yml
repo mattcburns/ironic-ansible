@@ -9,9 +9,8 @@
 # See: https://quay.io/organization/metal3-io
 
 ironic_image_repo: "quay.io/metal3-io"
-# WARNING: Using "latest" will silently pull new versions on every service
-# restart. Pin to a release tag for production (e.g. "v34.0.0").
-ironic_image_tag: "latest"
+# Pin to a known-good Metal3 release to avoid drift from floating "latest".
+ironic_image_tag: "v35.0.0"
 
 # -----------------------------------------------------------------------------
 # Docker / Container Runtime
