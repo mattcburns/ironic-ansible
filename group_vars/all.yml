@@ -203,6 +203,12 @@ ipa_images_directory: "{{ ironic_http_images_dir }}/ipa"
 # branch (e.g. ipa-centos9-stable-2024.2.kernel / .initramfs).
 ipa_kernel_filename: "ipa-centos9-master.kernel"
 ipa_ramdisk_filename: "ipa-centos9-master.initramfs"
+# Base kernel parameters passed to IPA for deploy/clean/inspection boots.
+ironic_ipa_kernel_append_params: "nofb vga=normal"
+# Optional public SSH key injected into the IPA ramdisk for debugging.
+# Example: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@example"
+# Note: dynamic-login supports one key via sshkey="...".
+ironic_ipa_ssh_public_key: ""
 
 ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
 

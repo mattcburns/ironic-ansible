@@ -287,6 +287,8 @@ ironic_grub_config_path: "EFI/centos/grub.cfg"
 ironic_bootloader: "file:///templates/uefi_esp_{{ ansible_architecture }}.img"
 ironic_bootloader_by_arch: "x86_64:file:///templates/uefi_esp_x86_64.img,aarch64:file:///templates/uefi_esp_aarch64.img"
 ironic_file_url_allowed_paths: "/shared/html,/templates"
+ironic_ipa_kernel_append_params: "nofb vga=normal"
+ironic_ipa_ssh_public_key: ""  # optional: inject one debug SSH key into IPA
 ironic_enabled_network_interfaces: "noop"
 ironic_default_network_interface: "noop"
 ironic_enabled_inspect_interfaces: "agent,no-inspect"
@@ -298,6 +300,9 @@ The default UEFI bootloader settings above align with upstream Metal3 images:
 under `/templates`, so no separate custom ESP build pipeline is required.
 The file URL allowlist includes `/templates` so Ironic accepts
 `file:///templates/uefi_esp_*.img` without security validation failures.
+Set `ironic_ipa_ssh_public_key` to a public key when you need shell access to
+the IPA live ramdisk during clean/deploy/inspect debugging. This maps to
+Ironic kernel append parameters (`sshkey="..."`) and supports one key.
 
 ### Conductor Scaling (Simple Default)
 

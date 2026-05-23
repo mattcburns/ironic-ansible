@@ -60,6 +60,8 @@ connection = mysql+pymysql://{{ mariadb_user }}:{{ mariadb_password }}@{{ mariad
 http_url = http://{{ ironic_api_host }}:{{ ironic_http_port }}/
 http_root = /shared/html
 default_boot_option = local
+[pxe]
+kernel_append_params = {{ ironic_ipa_kernel_append_params }}{% if ironic_ipa_ssh_public_key | default('') | trim %} sshkey="{{ ironic_ipa_ssh_public_key | trim }}"{% endif %}
 
 [dhcp]
 dhcp_provider = none
@@ -70,6 +72,7 @@ power_off = true
 extra_kernel_params =
 
 [redfish]
+kernel_append_params = {{ ironic_ipa_kernel_append_params }}{% if ironic_ipa_ssh_public_key | default('') | trim %} sshkey="{{ ironic_ipa_ssh_public_key | trim }}"{% endif %}
 use_swift = false
 
 [service_catalog]
