@@ -159,6 +159,8 @@ ironic_default_deploy_interface: "ramdisk"
 ironic_grub_config_path: "EFI/centos/grub.cfg"
 ironic_bootloader: "file:///templates/uefi_esp_{{ ansible_architecture | default('x86_64') }}.img"
 ironic_bootloader_by_arch: "x86_64:file:///templates/uefi_esp_x86_64.img,aarch64:file:///templates/uefi_esp_aarch64.img"
+# Permit file:// image source URLs for the embedded ESP templates and shared HTTP image volume.
+ironic_file_url_allowed_paths: "/shared/html,/templates"
 
 # Network: noop for standalone (no Neutron)
 ironic_enabled_network_interfaces: "noop"

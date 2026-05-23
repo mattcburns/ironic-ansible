@@ -286,6 +286,7 @@ ironic_default_deploy_interface: "ramdisk"
 ironic_grub_config_path: "EFI/centos/grub.cfg"
 ironic_bootloader: "file:///templates/uefi_esp_{{ ansible_architecture }}.img"
 ironic_bootloader_by_arch: "x86_64:file:///templates/uefi_esp_x86_64.img,aarch64:file:///templates/uefi_esp_aarch64.img"
+ironic_file_url_allowed_paths: "/shared/html,/templates"
 ironic_enabled_network_interfaces: "noop"
 ironic_default_network_interface: "noop"
 ironic_enabled_inspect_interfaces: "agent,no-inspect"
@@ -295,6 +296,8 @@ ironic_default_inspect_interface: "agent"
 The default UEFI bootloader settings above align with upstream Metal3 images:
 `quay.io/metal3-io/ironic` already includes architecture-specific ESP images
 under `/templates`, so no separate custom ESP build pipeline is required.
+The file URL allowlist includes `/templates` so Ironic accepts
+`file:///templates/uefi_esp_*.img` without security validation failures.
 
 ### Conductor Scaling (Simple Default)
 

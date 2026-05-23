@@ -49,6 +49,7 @@ automated_clean = {{ 'true' if ironic_automated_clean | bool else 'false' }}
 inspect_wait_timeout = {{ ironic_inspect_timeout }}
 bootloader = {{ ironic_bootloader }}
 bootloader_by_arch = {{ ironic_bootloader_by_arch }}
+file_url_allowed_paths = {{ ironic_file_url_allowed_paths }}
 deploy_kernel = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_kernel_filename }}
 deploy_ramdisk = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_ramdisk_filename }}
 
