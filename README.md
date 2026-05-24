@@ -395,10 +395,20 @@ docker logs ironic-conductor-1
 ```
 
 ### RabbitMQ Management UI
+The management UI is exposed on `127.0.0.1:15672` on the target host.
 
-Access at: `http://localhost:15672`
+For a remote deployment, create a local SSH tunnel:
 
-Default credentials: `guest` / `guest` (or configured `rabbitmq_user` / `rabbitmq_password`)
+```bash
+ssh -L 15672:127.0.0.1:15672 <ssh-user>@<ironic-host>
+```
+
+Then access:
+
+- `http://localhost:15672`
+- `http://localhost:15672/#/queues` (direct queues view)
+
+Use the configured `rabbitmq_user` / `rabbitmq_password` credentials.
 
 ## 🔧 Troubleshooting
 
