@@ -41,9 +41,9 @@
       - "{{ rabbitmq_container_name }}"
       - rabbitmq-diagnostics
       - -q
-      - ping
+      - check_running
   register: rabbitmq_app_ping_result
-  retries: 30
+  retries: 60
   delay: 2
   until: rabbitmq_app_ping_result.rc == 0
   changed_when: false
@@ -58,6 +58,12 @@
       - add_vhost
       - "{{ rabbitmq_vhost }}"
   register: rabbitmq_vhost_result
+  retries: 30
+  delay: 2
+  until: >-
+    rabbitmq_vhost_result.rc == 0 or
+    'already exists' in
+    (((rabbitmq_vhost_result.stdout | default('')) ~ (rabbitmq_vhost_result.stderr | default(''))) | lower)
   changed_when: rabbitmq_vhost_result.rc == 0
   failed_when: >-
     rabbitmq_vhost_result.rc != 0 and
@@ -75,6 +81,12 @@
       - "{{ rabbitmq_user }}"
       - "{{ rabbitmq_password }}"
   register: rabbitmq_user_add_result
+  retries: 30
+  delay: 2
+  until: >-
+    rabbitmq_user_add_result.rc == 0 or
+    'already exists' in
+    (((rabbitmq_user_add_result.stdout | default('')) ~ (rabbitmq_user_add_result.stderr | default(''))) | lower)
   changed_when: rabbitmq_user_add_result.rc == 0
   failed_when: >-
     rabbitmq_user_add_result.rc != 0 and
@@ -129,6 +141,10 @@
       - .*
       - .*
       - .*
+  register: rabbitmq_set_permissions_result
+  retries: 30
+  delay: 2
+  until: rabbitmq_set_permissions_result.rc == 0
   changed_when: false
 
 - name: Record whether RabbitMQ runtime changed
