@@ -15,6 +15,11 @@
     enabled: true
     state: started
     daemon_reload: true
+- name: Restart Ironic API when messaging configuration changed
+  ansible.builtin.systemd:
+    name: ironic-api
+    state: restarted
+  when: ironic_conf_changed | default(false) or rabbitmq_runtime_changed | default(false)
 
 - name: Wait for Ironic API to be ready
   ansible.builtin.wait_for:

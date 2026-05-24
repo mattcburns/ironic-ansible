@@ -9,3 +9,4 @@ workers_pool_size = {{ conductor_workers_pool_size }}
 {% if conductor_group_name | default('') %}
 conductor_group = {{ conductor_group_name }}
 {% endif %}
+clean_step_priority_override = generic.erase_devices:0

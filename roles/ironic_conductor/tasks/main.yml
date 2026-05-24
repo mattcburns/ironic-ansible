@@ -51,6 +51,16 @@
   loop_control:
     label: "{{ item }}"
   when: (ironic_conductor_groups | default([])) | length == 0
+- name: Restart conductor instances (default replica mode) when messaging configuration changed
+  ansible.builtin.systemd:
+    name: "ironic-conductor@{{ item }}"
+    state: restarted
+  loop: "{{ range(1, (ironic_conductor_replicas | int) + 1) | list }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - (ironic_conductor_groups | default([])) | length == 0
+    - ironic_conf_changed | default(false) or rabbitmq_runtime_changed | default(false)
 
 - name: Enable and start conductor instances (advanced grouped mode)
   ansible.builtin.systemd:
@@ -62,3 +72,14 @@
   loop_control:
     label: "{{ item.name }}"
   when: (ironic_conductor_groups | default([])) | length > 0
+
+- name: Restart conductor instances (advanced grouped mode) when messaging configuration changed
+  ansible.builtin.systemd:
+    name: "ironic-conductor@{{ item.name }}"
+    state: restarted
+  loop: "{{ ironic_conductor_groups }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - (ironic_conductor_groups | default([])) | length > 0
+    - ironic_conf_changed | default(false) or rabbitmq_runtime_changed | default(false)

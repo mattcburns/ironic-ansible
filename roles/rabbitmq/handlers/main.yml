@@ -2,3 +2,8 @@
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
+
+- name: Restart RabbitMQ service
+  ansible.builtin.systemd:
+    name: ironic-rabbitmq
+    state: restarted

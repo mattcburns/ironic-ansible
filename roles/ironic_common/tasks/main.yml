@@ -9,6 +9,11 @@
     owner: "{{ ironic_service_user }}"
     group: "{{ ironic_service_group }}"
     backup: true
+  register: ironic_conf_template_result
+
+- name: Record whether Ironic configuration changed
+  ansible.builtin.set_fact:
+    ironic_conf_changed: "{{ ironic_conf_template_result.changed | bool }}"
 
 - name: Run Ironic database schema migration
   ansible.builtin.command: >

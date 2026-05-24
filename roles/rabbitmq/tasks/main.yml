@@ -4,6 +4,8 @@
     src: rabbitmq.env.j2
     dest: "{{ ironic_etc_dir }}/rabbitmq.env"
     mode: '0600'
+  register: rabbitmq_env_file_result
+  notify: Restart RabbitMQ service
   no_log: true
 
 - name: Deploy RabbitMQ systemd service
@@ -11,7 +13,10 @@
     src: rabbitmq.service.j2
     dest: /etc/systemd/system/ironic-rabbitmq.service
     mode: '0644'
-  notify: Reload systemd
+  register: rabbitmq_service_unit_result
+  notify:
+    - Reload systemd
+    - Restart RabbitMQ service
 
 - name: Flush handlers
   ansible.builtin.meta: flush_handlers
@@ -28,3 +33,95 @@
     port: "{{ rabbitmq_amqp_port }}"
     delay: 5
     timeout: 120
+
+- name: Ensure RabbitMQ vhost exists
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_bin }}"
+      - exec
+      - "{{ rabbitmq_container_name }}"
+      - rabbitmqctl
+      - add_vhost
+      - "{{ rabbitmq_vhost }}"
+  register: rabbitmq_vhost_result
+  changed_when: rabbitmq_vhost_result.rc == 0
+  failed_when: >-
+    rabbitmq_vhost_result.rc != 0 and
+    'already exists' not in
+    (((rabbitmq_vhost_result.stdout | default('')) ~ (rabbitmq_vhost_result.stderr | default(''))) | lower)
+
+- name: Ensure RabbitMQ user exists
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_bin }}"
+      - exec
+      - "{{ rabbitmq_container_name }}"
+      - rabbitmqctl
+      - add_user
+      - "{{ rabbitmq_user }}"
+      - "{{ rabbitmq_password }}"
+  register: rabbitmq_user_add_result
+  changed_when: rabbitmq_user_add_result.rc == 0
+  failed_when: >-
+    rabbitmq_user_add_result.rc != 0 and
+    'already exists' not in
+    (((rabbitmq_user_add_result.stdout | default('')) ~ (rabbitmq_user_add_result.stderr | default(''))) | lower)
+  no_log: true
+
+- name: Ensure RabbitMQ user password is synchronized
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_bin }}"
+      - exec
+      - "{{ rabbitmq_container_name }}"
+      - rabbitmqctl
+      - authenticate_user
+      - "{{ rabbitmq_user }}"
+      - "{{ rabbitmq_password }}"
+  when: rabbitmq_user_add_result.rc != 0
+  register: rabbitmq_user_auth_result
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Ensure RabbitMQ user password is synchronized
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_bin }}"
+      - exec
+      - "{{ rabbitmq_container_name }}"
+      - rabbitmqctl
+      - change_password
+      - "{{ rabbitmq_user }}"
+      - "{{ rabbitmq_password }}"
+  when:
+    - rabbitmq_user_add_result.rc != 0
+    - rabbitmq_user_auth_result.rc != 0
+  register: rabbitmq_user_password_result
+  changed_when: true
+  no_log: true
+
+- name: Ensure RabbitMQ user permissions are synchronized
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_bin }}"
+      - exec
+      - "{{ rabbitmq_container_name }}"
+      - rabbitmqctl
+      - set_permissions
+      - -p
+      - "{{ rabbitmq_vhost }}"
+      - "{{ rabbitmq_user }}"
+      - .*
+      - .*
+      - .*
+  changed_when: false
+
+- name: Record whether RabbitMQ runtime changed
+  ansible.builtin.set_fact:
+    rabbitmq_runtime_changed: >-
+      {{ rabbitmq_env_file_result.changed or
+         rabbitmq_service_unit_result.changed or
+         rabbitmq_vhost_result.changed or
+         rabbitmq_user_add_result.changed or
+         (rabbitmq_user_password_result is defined and rabbitmq_user_password_result.changed) }}
