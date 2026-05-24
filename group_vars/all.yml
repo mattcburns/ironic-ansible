@@ -153,11 +153,16 @@ ironic_default_boot_interface: "redfish-virtual-media"
 # Deploy: ramdisk for virtual media based ISO boot
 ironic_enabled_deploy_interfaces: "direct,ramdisk"
 ironic_default_deploy_interface: "ramdisk"
-
-# Boot ISO settings. Leave empty to use upstream Ironic defaults from the
-# container image unless your environment requires explicit overrides.
-ironic_grub_config_path: "EFI/BOOT/grub.cfg"
-ironic_bootloader: ""
+# Boot ISO settings for UEFI virtual-media ISO creation.
+# ESP image artifacts are sourced from:
+# https://github.com/mattcburns/ironic-iso
+ironic_esp_image_release_tag: "v0.0.27"
+ironic_esp_image_filename: "esp.img"
+ironic_esp_image_url: "https://github.com/mattcburns/ironic-iso/releases/download/{{ ironic_esp_image_release_tag }}/{{ ironic_esp_image_filename }}"
+# The ESP image is downloaded under ironic_http_images_dir and mounted into the
+# conductor container at /shared/html.
+ironic_grub_config_path: "EFI/centos/grub.cfg"
+ironic_bootloader: "file:///shared/html/{{ ironic_esp_image_filename }}"
 ironic_bootloader_by_arch: ""
 ironic_file_url_allowed_paths: ""
 
@@ -165,9 +170,9 @@ ironic_file_url_allowed_paths: ""
 ironic_enabled_network_interfaces: "noop"
 ironic_default_network_interface: "noop"
 
-# Inspect: agent-based inspection
-ironic_enabled_inspect_interfaces: "agent,no-inspect"
-ironic_default_inspect_interface: "agent"
+# Inspect: prefer out-of-band Redfish inspection
+ironic_enabled_inspect_interfaces: "redfish,no-inspect"
+ironic_default_inspect_interface: "redfish"
 
 # Management & Power
 ironic_enabled_management_interfaces: "redfish,noop"

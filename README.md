@@ -1,6 +1,6 @@
 # Standalone OpenStack Ironic Deployment via Ansible
 
-A complete Ansible-based deployment solution for running OpenStack Ironic in standalone mode using Docker containers managed by systemd. This deployment uses **virtual media booting** and **built-in agent inspection** - eliminating the need for PXE, DHCP, or a separate inspector service.
+A complete Ansible-based deployment solution for running OpenStack Ironic in standalone mode using Docker containers managed by systemd. This deployment uses **virtual media booting** and **Redfish-based inspection** - eliminating the need for PXE, DHCP, or a separate inspector service.
 
 ## 🚀 Features
 
@@ -285,21 +285,27 @@ ironic_enabled_boot_interfaces: "redfish-virtual-media,redfish-https"
 ironic_default_boot_interface: "redfish-virtual-media"
 ironic_enabled_deploy_interfaces: "direct,ramdisk"
 ironic_default_deploy_interface: "ramdisk"
-ironic_grub_config_path: "EFI/BOOT/grub.cfg"
-ironic_bootloader: ""
+ironic_esp_image_release_tag: "v0.0.27"
+ironic_esp_image_filename: "esp.img"
+ironic_esp_image_url: "https://github.com/mattcburns/ironic-iso/releases/download/{{ ironic_esp_image_release_tag }}/{{ ironic_esp_image_filename }}"
+ironic_grub_config_path: "EFI/centos/grub.cfg"
+ironic_bootloader: "file:///shared/html/{{ ironic_esp_image_filename }}"
 ironic_bootloader_by_arch: ""
 ironic_file_url_allowed_paths: ""
 ironic_ipa_kernel_append_params: "nofb vga=normal"
 ironic_ipa_ssh_public_key: ""  # optional: inject one debug SSH key into IPA
 ironic_enabled_network_interfaces: "noop"
 ironic_default_network_interface: "noop"
-ironic_enabled_inspect_interfaces: "agent,no-inspect"
-ironic_default_inspect_interface: "agent"
+ironic_enabled_inspect_interfaces: "redfish,no-inspect"
+ironic_default_inspect_interface: "redfish"
 ```
 The defaults above are aligned for `ghcr.io/mattcburns/ironic-standalone`.
-Bootloader-related overrides are intentionally empty so Ironic uses upstream
-built-in defaults from the container image. Set these values only when your
-environment requires explicit custom bootloader paths.
+ESP image artifacts are downloaded from the tagged release in
+`mattcburns/ironic-iso` and exposed to the conductor via
+`file:///shared/html/{{ ironic_esp_image_filename }}`. This keeps deploy and
+clean flows on Ironic's runtime ISO-building path without requiring `deploy_iso`.
+If you replace the ESP source, update both `ironic_esp_image_url` and
+`ironic_grub_config_path` to match the GRUB binary embedded in that image.
 Set `ironic_ipa_ssh_public_key` to a public key when you need shell access to
 the IPA live ramdisk during clean/deploy/inspect debugging. This maps to
 Ironic kernel append parameters (`sshkey="..."`) and supports one key.
@@ -492,6 +498,7 @@ ansible-playbook playbooks/rollback.yml -i inventory
 
 - [OpenStack Ironic Documentation](https://docs.openstack.org/ironic/latest/)
 - [Ironic Standalone Container Repository](https://github.com/mattcburns/ironic-standalone)
+- [Ironic ISO / ESP Artifact Repository](https://github.com/mattcburns/ironic-iso)
 - [Ironic Standalone Deployment](https://docs.openstack.org/ironic/latest/install/standalone.html)
 - [Redfish Virtual Media](https://www.dmtf.org/standards/redfish)
 

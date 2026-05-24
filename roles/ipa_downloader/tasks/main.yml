@@ -36,3 +36,9 @@
     - "{{ ipa_kernel_filename }}"
     - "{{ ipa_ramdisk_filename }}"
   failed_when: false
+
+- name: Wait for ESP image to be downloaded
+  ansible.builtin.wait_for:
+    path: "{{ ironic_http_images_dir }}/{{ ironic_esp_image_filename }}"
+    timeout: 300
+  failed_when: false

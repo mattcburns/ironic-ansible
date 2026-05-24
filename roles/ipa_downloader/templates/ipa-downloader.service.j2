@@ -11,6 +11,8 @@ Environment=IPA_BASE_URL={{ ipa_base_url }}
 Environment=IPA_IMAGES_DIR={{ ipa_images_directory }}
 Environment=IPA_KERNEL={{ ipa_kernel_filename }}
 Environment=IPA_RAMDISK={{ ipa_ramdisk_filename }}
+Environment=ESP_IMAGE_URL={{ ironic_esp_image_url }}
+Environment=ESP_IMAGE_PATH={{ ironic_http_images_dir }}/{{ ironic_esp_image_filename }}
 
 ExecStart={{ ipa_downloader_script_path }}
 
