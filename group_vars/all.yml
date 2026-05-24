@@ -5,12 +5,13 @@
 # -----------------------------------------------------------------------------
 # Container Image Configuration
 # -----------------------------------------------------------------------------
-# Metal3-io images are published to quay.io.
-# See: https://quay.io/organization/metal3-io
-
-ironic_image_repo: "quay.io/metal3-io"
-# Pin to a known-good Metal3 release to avoid drift from floating "latest".
-ironic_image_tag: "v35.0.0"
+# Standalone Ironic image is published to GHCR from:
+# https://github.com/mattcburns/ironic-standalone
+ironic_image_repo: "ghcr.io/mattcburns"
+ironic_image_name: "ironic-standalone"
+# Default to the branch tag published on every push.
+# Override with a release tag (for example, v35.0.1) when pinning upgrades.
+ironic_image_tag: "master"
 
 # -----------------------------------------------------------------------------
 # Docker / Container Runtime
@@ -153,13 +154,12 @@ ironic_default_boot_interface: "redfish-virtual-media"
 ironic_enabled_deploy_interfaces: "direct,ramdisk"
 ironic_default_deploy_interface: "ramdisk"
 
-# UEFI virtual media boot ISO support (aligned with upstream metal3-io/ironic)
-# The Metal3 image ships architecture-specific ESP images under /templates.
-ironic_grub_config_path: "EFI/centos/grub.cfg"
-ironic_bootloader: "file:///templates/uefi_esp_{{ ansible_architecture | default('x86_64') }}.img"
-ironic_bootloader_by_arch: "x86_64:file:///templates/uefi_esp_x86_64.img,aarch64:file:///templates/uefi_esp_aarch64.img"
-# Permit file:// image source URLs for the embedded ESP templates and shared HTTP image volume.
-ironic_file_url_allowed_paths: "/shared/html,/templates"
+# Boot ISO settings. Leave empty to use upstream Ironic defaults from the
+# container image unless your environment requires explicit overrides.
+ironic_grub_config_path: "EFI/BOOT/grub.cfg"
+ironic_bootloader: ""
+ironic_bootloader_by_arch: ""
+ironic_file_url_allowed_paths: ""
 
 # Network: noop for standalone (no Neutron)
 ironic_enabled_network_interfaces: "noop"

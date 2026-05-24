@@ -11,7 +11,7 @@ RestartSec=10s
 
 ExecStartPre=-{{ docker_bin }} stop {{ ironic_api_container_name }}
 ExecStartPre=-{{ docker_bin }} rm {{ ironic_api_container_name }}
-ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}
+ExecStartPre=-{{ docker_bin }} pull {{ ironic_image_repo }}/{{ ironic_image_name }}:{{ ironic_image_tag }}
 
 ExecStart={{ docker_bin }} run --name {{ ironic_api_container_name }} \
     --rm \
@@ -20,8 +20,8 @@ ExecStart={{ docker_bin }} run --name {{ ironic_api_container_name }} \
     -v {{ ironic_etc_dir }}/htpasswd:/etc/ironic/htpasswd:ro,z \
     -v {{ ironic_var_log_dir }}:/var/log/ironic:z \
     -p {{ ironic_api_bind_addr }}:{{ ironic_api_port }}:6385 \
-    {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }} \
-    ironic-api --config-file /etc/ironic/ironic.conf
+    -e IRONIC_ROLE=api \
+    {{ ironic_image_repo }}/{{ ironic_image_name }}:{{ ironic_image_tag }}
 
 ExecStop={{ docker_bin }} stop {{ ironic_api_container_name }}
 

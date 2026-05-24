@@ -20,7 +20,8 @@
     {{ docker_bin }} run --rm
     --network {{ docker_network_name }}
     -v {{ ironic_etc_dir }}/ironic.conf:/etc/ironic/ironic.conf:ro,z
-    {{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}
-    ironic-dbsync upgrade
+    -e IRONIC_ROLE=dbsync
+    -e DBSYNC_CMD=upgrade
+    {{ ironic_image_repo }}/{{ ironic_image_name }}:{{ ironic_image_tag }}
   register: dbsync_result
   changed_when: "'upgrade' in dbsync_result.stdout or dbsync_result.rc == 0"

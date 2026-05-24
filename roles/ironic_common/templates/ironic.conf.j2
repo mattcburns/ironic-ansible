@@ -47,9 +47,15 @@ api_workers = {{ ironic_api_workers }}
 [conductor]
 automated_clean = {{ 'true' if ironic_automated_clean | bool else 'false' }}
 inspect_wait_timeout = {{ ironic_inspect_timeout }}
+{% if ironic_bootloader | default('') | trim %}
 bootloader = {{ ironic_bootloader }}
+{% endif %}
+{% if ironic_bootloader_by_arch | default('') | trim %}
 bootloader_by_arch = {{ ironic_bootloader_by_arch }}
+{% endif %}
+{% if ironic_file_url_allowed_paths | default('') | trim %}
 file_url_allowed_paths = {{ ironic_file_url_allowed_paths }}
+{% endif %}
 deploy_kernel = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_kernel_filename }}
 deploy_ramdisk = http://{{ ironic_api_host }}:{{ ironic_http_port }}/ipa/{{ ipa_ramdisk_filename }}
 

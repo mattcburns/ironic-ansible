@@ -9,7 +9,7 @@
     rollback_remove_container_images: true
     rollback_remove_prerequisite_packages: true
     rollback_images:
-      - "{{ ironic_image_repo }}/ironic:{{ ironic_image_tag }}"
+      - "{{ ironic_image_repo }}/{{ ironic_image_name }}:{{ ironic_image_tag }}"
       - "{{ ironic_http_image }}"
       - "{{ mariadb_image }}"
       - "{{ rabbitmq_image }}"
