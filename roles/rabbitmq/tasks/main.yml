@@ -33,6 +33,20 @@
     port: "{{ rabbitmq_amqp_port }}"
     delay: 5
     timeout: 120
+- name: Wait for RabbitMQ application inside container to be running
+  ansible.builtin.command:
+    argv:
+      - "{{ docker_bin }}"
+      - exec
+      - "{{ rabbitmq_container_name }}"
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+  register: rabbitmq_app_ping_result
+  retries: 30
+  delay: 2
+  until: rabbitmq_app_ping_result.rc == 0
+  changed_when: false
 
 - name: Ensure RabbitMQ vhost exists
   ansible.builtin.command:
