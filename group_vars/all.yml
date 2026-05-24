@@ -170,8 +170,8 @@ ironic_enabled_inspect_interfaces: "agent,no-inspect"
 ironic_default_inspect_interface: "agent"
 
 # Management & Power
-ironic_enabled_management_interfaces: "ipmitool,redfish,noop"
-ironic_enabled_power_interfaces: "ipmitool,redfish"
+ironic_enabled_management_interfaces: "redfish,noop"
+ironic_enabled_power_interfaces: "redfish"
 
 # RAID
 ironic_enabled_raid_interfaces: "agent,no-raid"
