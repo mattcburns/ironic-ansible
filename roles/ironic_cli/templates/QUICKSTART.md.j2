@@ -45,12 +45,18 @@ curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ i
 # 5) Set deploy image
 {% if ubuntu_lts_image_enabled | bool %}
 {{ ironic_cli_wrapper_path }} node set <node id> \
+  --instance-info image_type=whole-disk \
+  --instance-info image_disk_format=qcow2 \
   --instance-info image_source={{ ubuntu_lts_image_http_url }} \
-  --instance-info image_checksum=$(curl -fsSL {{ ubuntu_lts_image_checksum_http_url }})
+  --instance-info image_os_hash_algo=sha256 \
+  --instance-info image_os_hash_value=$(curl -fsSL {{ ubuntu_lts_image_checksum_http_url }})
 {% else %}
 {{ ironic_cli_wrapper_path }} node set <node id> \
+  --instance-info image_type=whole-disk \
+  --instance-info image_disk_format=<raw|qcow2> \
   --instance-info image_source=<url to os image> \
-  --instance-info image_checksum=<os image sha256sum>
+  --instance-info image_os_hash_algo=sha256 \
+  --instance-info image_os_hash_value=<os image sha256sum>
 {% endif %}
 
 # 6) Deploy

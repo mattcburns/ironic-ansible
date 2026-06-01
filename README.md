@@ -12,7 +12,7 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 - ✅ **Containerized CLI helper**: Run `openstack baremetal` via `ironic-cli` without host package installs
 - ✅ **Generated `clouds.yaml` profile**: Ansible writes `/etc/openstack/clouds.yaml` for `--os-cloud` auth
 - ✅ **Generated `QUICKSTART.md` cheat sheet**: Ansible writes command snippets and resolved URLs/paths to `/etc/ironic/QUICKSTART.md`
-- ✅ **Ubuntu LTS image mirror**: Automatically downloads and serves the latest LTS cloud image for provisioning
+- ✅ **Ubuntu LTS image mirror**: Downloads and serves a Ubuntu LTS cloud image for provisioning (default pinned to 24.04)
 - ✅ **Scalable conductors**: Systemd unit templates for dynamic conductor scaling
 - ✅ **Production-ready**: MariaDB and RabbitMQ for persistence and messaging
 
@@ -223,7 +223,7 @@ openstack --os-cloud ironic baremetal node list
 1. Make the node manageable: `ironic-cli node manage <node id>`
 1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data network_data.json <node id>`
 1. Make the node available for provisioning and trigger a cleaning: `ironic-cli node provide <node id>`
-1. Configure the OS to provision (default mirrored image): `ironic-cli node set <node id> --instance-info image_source=http://<ironic-host>:6180/ubuntu/ubuntu-lts-server-cloudimg-amd64.img --instance-info image_checksum=$(curl -fsSL http://<ironic-host>:6180/ubuntu/ubuntu-lts-server-cloudimg-amd64.img.sha256)`
+1. Configure the OS to provision (default mirrored image): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/ubuntu/ubuntu-lts-server-cloudimg-amd64.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/ubuntu/ubuntu-lts-server-cloudimg-amd64.img.sha256)`
 1. Provision the node: `ironic-cli node deploy <node id> --configdrive <some cloudinit json, optional>`
 
 
@@ -327,7 +327,7 @@ Ironic kernel append parameters (`sshkey="..."`) and supports one key.
 
 ```yaml
 ubuntu_lts_image_enabled: true
-ubuntu_lts_image_url: ""  # optional pin/override; empty means auto-resolve latest LTS
+ubuntu_lts_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-{{ ubuntu_lts_image_arch }}.img"  # default pin: Ubuntu 24.04 LTS
 ubuntu_lts_meta_release_url: "https://changelogs.ubuntu.com/meta-release-lts"
 ubuntu_lts_image_arch: "amd64"
 ubuntu_lts_image_directory: "{{ ironic_http_images_dir }}/ubuntu"
@@ -338,8 +338,10 @@ ubuntu_lts_image_checksum_http_url: "{{ ubuntu_lts_image_http_url }}.sha256"
 
 When `ubuntu_lts_image_enabled` is true, deploy downloads a cloud image into
 `{{ ubuntu_lts_image_directory }}` and writes a SHA256 checksum file alongside
-it. The deploy summary prints both HTTP URLs so you can use them directly with
-`--instance-info image_source` and `--instance-info image_checksum`.
+it. Set `ubuntu_lts_image_url` to an empty string if you want to auto-resolve
+the latest LTS dynamically from `ubuntu_lts_meta_release_url`. The deploy
+summary prints both HTTP URLs so you can use them directly with
+`--instance-info image_source` and SHA256 `image_os_hash_*` fields.
 
 ### Conductor Scaling (Simple Default)
 

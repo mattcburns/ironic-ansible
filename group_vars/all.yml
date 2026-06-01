@@ -223,11 +223,12 @@ ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
 # -----------------------------------------------------------------------------
 # Provisioning Image Mirror (Ubuntu LTS)
 # -----------------------------------------------------------------------------
-# Download the latest Ubuntu LTS cloud image and expose it via ironic-http.
+# Download and expose a Ubuntu LTS cloud image via ironic-http.
 ubuntu_lts_image_enabled: true
-# Optional override to pin a specific image URL. Leave empty to auto-resolve
-# latest LTS from ubuntu_lts_meta_release_url.
-ubuntu_lts_image_url: ""
+# Default is pinned to Ubuntu 24.04 LTS (noble) for deployment stability.
+# Set this to an empty string to auto-resolve latest LTS from
+# ubuntu_lts_meta_release_url instead.
+ubuntu_lts_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-{{ ubuntu_lts_image_arch }}.img"
 ubuntu_lts_meta_release_url: "https://changelogs.ubuntu.com/meta-release-lts"
 ubuntu_lts_image_arch: "amd64"
 ubuntu_lts_image_directory: "{{ ironic_http_images_dir }}/ubuntu"
