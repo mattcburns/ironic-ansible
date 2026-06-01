@@ -13,6 +13,14 @@ Environment=IPA_KERNEL={{ ipa_kernel_filename }}
 Environment=IPA_RAMDISK={{ ipa_ramdisk_filename }}
 Environment=ESP_IMAGE_URL={{ ironic_esp_image_url }}
 Environment=ESP_IMAGE_PATH={{ ironic_http_images_dir }}/{{ ironic_esp_image_filename }}
+Environment=UBUNTU_LTS_IMAGE_ENABLED={{ 'true' if ubuntu_lts_image_enabled | bool else 'false' }}
+Environment=UBUNTU_LTS_IMAGE_URL={{ ubuntu_lts_image_url }}
+Environment=UBUNTU_LTS_META_RELEASE_URL={{ ubuntu_lts_meta_release_url }}
+Environment=UBUNTU_LTS_IMAGE_ARCH={{ ubuntu_lts_image_arch }}
+Environment=UBUNTU_LTS_IMAGE_DIR={{ ubuntu_lts_image_directory }}
+Environment=UBUNTU_LTS_IMAGE_FILENAME={{ ubuntu_lts_image_filename }}
+Environment=UBUNTU_LTS_IMAGE_PATH={{ ubuntu_lts_image_local_path }}
+Environment=UBUNTU_LTS_IMAGE_CHECKSUM_PATH={{ ubuntu_lts_image_checksum_local_path }}
 
 ExecStart={{ ipa_downloader_script_path }}
 

@@ -16,7 +16,7 @@
     - role: mariadb
     - role: rabbitmq
 
-- name: Deploy IPA Images
+- name: Deploy IPA and provisioning images
   hosts: ironic
   become: true
   gather_facts: true
@@ -61,6 +61,8 @@
           - "============================================"
           - "Ironic API: http://{{ ironic_api_host }}:{{ ironic_api_port }}"
           - "HTTP Server: http://{{ ironic_api_host }}:{{ ironic_http_port }}"
+          - "{{ ('Ubuntu LTS image: ' ~ ubuntu_lts_image_http_url) if (ubuntu_lts_image_enabled | bool) else 'Ubuntu LTS image mirror: disabled' }}"
+          - "{{ ('Ubuntu LTS checksum: ' ~ ubuntu_lts_image_checksum_http_url) if (ubuntu_lts_image_enabled | bool) else 'Ubuntu LTS checksum: disabled' }}"
           - "MariaDB: localhost:{{ mariadb_port }}"
           - "RabbitMQ: localhost:{{ rabbitmq_amqp_port }}"
           - "RabbitMQ Management: http://localhost:{{ rabbitmq_management_port }}"

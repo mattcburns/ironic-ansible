@@ -48,11 +48,13 @@ while IFS='=' read -r name _; do
 done < <(env)
 
 VOLUME_ARGS=()
-if [[ -f "${CLI_CLOUDS_YAML}" ]]; then
-  VOLUME_ARGS+=( "-v" "${CLI_CLOUDS_YAML}:${CLI_USER_OPENSTACK_DIR}/clouds.yaml:ro" )
-fi
 if [[ -d "${HOME}/.config/openstack" ]]; then
   VOLUME_ARGS+=( "-v" "${HOME}/.config/openstack:${CLI_USER_OPENSTACK_DIR}:ro" )
+fi
+if [[ -f "${CLI_CLOUDS_YAML}" ]]; then
+  # Add this mount after the optional host ~/.config/openstack directory mount so
+  # the generated profile remains authoritative for ironic-cli by default.
+  VOLUME_ARGS+=( "-v" "${CLI_CLOUDS_YAML}:${CLI_USER_OPENSTACK_DIR}/clouds.yaml:ro" )
 fi
 if [[ -d "/etc/openstack" ]]; then
   VOLUME_ARGS+=( "-v" "/etc/openstack:/etc/openstack:ro" )

@@ -216,6 +216,22 @@ ironic_ipa_kernel_append_params: "nofb vga=normal"
 ironic_ipa_ssh_public_key: ""
 
 ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
+# -----------------------------------------------------------------------------
+# Provisioning Image Mirror (Ubuntu LTS)
+# -----------------------------------------------------------------------------
+# Download the latest Ubuntu LTS cloud image and expose it via ironic-http.
+ubuntu_lts_image_enabled: true
+# Optional override to pin a specific image URL. Leave empty to auto-resolve
+# latest LTS from ubuntu_lts_meta_release_url.
+ubuntu_lts_image_url: ""
+ubuntu_lts_meta_release_url: "https://changelogs.ubuntu.com/meta-release-lts"
+ubuntu_lts_image_arch: "amd64"
+ubuntu_lts_image_directory: "{{ ironic_http_images_dir }}/ubuntu"
+ubuntu_lts_image_filename: "ubuntu-lts-server-cloudimg-{{ ubuntu_lts_image_arch }}.img"
+ubuntu_lts_image_local_path: "{{ ubuntu_lts_image_directory }}/{{ ubuntu_lts_image_filename }}"
+ubuntu_lts_image_checksum_local_path: "{{ ubuntu_lts_image_local_path }}.sha256"
+ubuntu_lts_image_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/ubuntu/{{ ubuntu_lts_image_filename }}"
+ubuntu_lts_image_checksum_http_url: "{{ ubuntu_lts_image_http_url }}.sha256"
 
 # -----------------------------------------------------------------------------
 # SSL/TLS (Optional)

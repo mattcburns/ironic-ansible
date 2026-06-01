@@ -42,3 +42,17 @@
     path: "{{ ironic_http_images_dir }}/{{ ironic_esp_image_filename }}"
     timeout: 300
   failed_when: false
+
+- name: Wait for Ubuntu LTS image to be downloaded
+  ansible.builtin.wait_for:
+    path: "{{ ubuntu_lts_image_local_path }}"
+    timeout: 600
+  failed_when: false
+  when: ubuntu_lts_image_enabled | bool
+
+- name: Wait for Ubuntu LTS checksum to be generated
+  ansible.builtin.wait_for:
+    path: "{{ ubuntu_lts_image_checksum_local_path }}"
+    timeout: 60
+  failed_when: false
+  when: ubuntu_lts_image_enabled | bool

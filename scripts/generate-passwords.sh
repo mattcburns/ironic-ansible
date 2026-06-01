@@ -83,7 +83,7 @@ for key in keys:
         re.MULTILINE,
     )
     content, replacement_count = replace_pattern.subn(
-        lambda match, value=generated_password: f'{match.group("prefix")}{value}"{match.group("suffix")}',
+        lambda match, value=generated_password: f'{match.group("prefix")}"{value}"{match.group("suffix")}',
         content,
         count=1,
     )
