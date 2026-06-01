@@ -43,6 +43,25 @@
         mode: '0600'
       no_log: true
 
+- name: Configure generated QUICKSTART reference
+  when: ironic_quickstart_enabled | bool
+  block:
+    - name: Ensure QUICKSTART directory exists
+      ansible.builtin.file:
+        path: "{{ ironic_quickstart_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy generated QUICKSTART markdown
+      ansible.builtin.template:
+        src: QUICKSTART.md.j2
+        dest: "{{ ironic_quickstart_path }}"
+        owner: root
+        group: root
+        mode: '0644'
+
 - name: Remove containerized Ironic CLI helper when disabled
   when: not ironic_cli_enabled | bool
   ansible.builtin.file:
@@ -56,4 +75,10 @@
   when: not ironic_clouds_yaml_enabled | bool
   ansible.builtin.file:
     path: "{{ ironic_clouds_yaml_path }}"
+    state: absent
+
+- name: Remove generated QUICKSTART markdown when disabled
+  when: not ironic_quickstart_enabled | bool
+  ansible.builtin.file:
+    path: "{{ ironic_quickstart_path }}"
     state: absent

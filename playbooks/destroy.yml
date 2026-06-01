@@ -58,6 +58,7 @@
         - "{{ ironic_cli_wrapper_path }}"
         - "{{ ironic_cli_env_file }}"
         - "{{ ironic_clouds_yaml_path }}"
+        - "{{ ironic_quickstart_path }}"
 
     - name: Reload systemd
       ansible.builtin.systemd:

@@ -11,6 +11,7 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 - ✅ **HTTP Basic Auth**: Simple authentication with htpasswd
 - ✅ **Containerized CLI helper**: Run `openstack baremetal` via `ironic-cli` without host package installs
 - ✅ **Generated `clouds.yaml` profile**: Ansible writes `/etc/openstack/clouds.yaml` for `--os-cloud` auth
+- ✅ **Generated `QUICKSTART.md` cheat sheet**: Ansible writes command snippets and resolved URLs/paths to `/etc/ironic/QUICKSTART.md`
 - ✅ **Ubuntu LTS image mirror**: Automatically downloads and serves the latest LTS cloud image for provisioning
 - ✅ **Scalable conductors**: Systemd unit templates for dynamic conductor scaling
 - ✅ **Production-ready**: MariaDB and RabbitMQ for persistence and messaging
@@ -178,6 +179,9 @@ ironic-cli node list
 
 # If openstackclient is installed on the host, use the generated cloud profile
 openstack --os-cloud ironic baremetal node list
+
+# Review generated quickstart commands and resolved paths/URLs
+cat /etc/ironic/QUICKSTART.md
 ```
 
 ## 📖 Usage
@@ -278,6 +282,13 @@ ironic_clouds_yaml_path: "/etc/openstack/clouds.yaml"
 ironic_cloud_name: "ironic"
 ironic_cloud_interface: "public"
 ironic_cloud_region_name: "RegionOne"
+```
+
+### Generated QUICKSTART Cheat Sheet
+
+```yaml
+ironic_quickstart_enabled: true
+ironic_quickstart_path: "{{ ironic_etc_dir }}/QUICKSTART.md"
 ```
 
 ### Boot Interfaces

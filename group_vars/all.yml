@@ -45,6 +45,10 @@ ironic_clouds_yaml_path: "/etc/openstack/clouds.yaml"
 ironic_cloud_name: "ironic"
 ironic_cloud_interface: "public"
 ironic_cloud_region_name: "RegionOne"
+# Generated deployment cheat sheet containing common ironic-cli commands and
+# resolved local paths/URLs.
+ironic_quickstart_enabled: true
+ironic_quickstart_path: "{{ ironic_etc_dir }}/QUICKSTART.md"
 
 # -----------------------------------------------------------------------------
 # Service Account Configuration
