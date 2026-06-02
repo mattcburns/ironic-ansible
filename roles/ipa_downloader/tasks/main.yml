@@ -1,20 +1,32 @@
 ---
-- name: Ensure IPA downloader directory exists
+- name: Ensure downloader script directories exist
   ansible.builtin.file:
-    path: "{{ ipa_downloader_script_path | dirname }}"
+    path: "{{ item }}"
     state: directory
     mode: '0755'
+  loop: "{{ [ipa_downloader_script_path | dirname, os_image_downloader_script_path | dirname] | unique }}"
 
 - name: Copy IPA downloader script
   ansible.builtin.copy:
     src: ipa-downloader.sh
     dest: "{{ ipa_downloader_script_path }}"
     mode: '0755'
+- name: Copy OS image downloader script
+  ansible.builtin.copy:
+    src: os-image-downloader.sh
+    dest: "{{ os_image_downloader_script_path }}"
+    mode: '0755'
 
 - name: Deploy IPA downloader systemd service
   ansible.builtin.template:
     src: ipa-downloader.service.j2
     dest: /etc/systemd/system/ipa-downloader.service
+    mode: '0644'
+  notify: Reload systemd
+- name: Deploy OS image downloader systemd service
+  ansible.builtin.template:
+    src: os-image-downloader.service.j2
+    dest: /etc/systemd/system/os-image-downloader.service
     mode: '0644'
   notify: Reload systemd
 
@@ -25,8 +37,23 @@
   ansible.builtin.systemd:
     name: ipa-downloader
     enabled: true
-    state: started
+    state: restarted
     daemon_reload: true
+- name: Run OS image downloader
+  ansible.builtin.systemd:
+    name: os-image-downloader
+    enabled: true
+    state: restarted
+    daemon_reload: true
+  when: ubuntu_lts_image_enabled | bool
+
+- name: Stop and disable OS image downloader when disabled
+  ansible.builtin.systemd:
+    name: os-image-downloader
+    enabled: false
+    state: stopped
+    daemon_reload: true
+  when: not (ubuntu_lts_image_enabled | bool)
 
 - name: Wait for IPA images to be downloaded
   ansible.builtin.wait_for:
@@ -46,7 +73,7 @@
 - name: Wait for Ubuntu LTS image to be downloaded
   ansible.builtin.wait_for:
     path: "{{ ubuntu_lts_image_local_path }}"
-    timeout: 600
+    timeout: 1200
   failed_when: false
   when:
     - ubuntu_lts_image_enabled | bool

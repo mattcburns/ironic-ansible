@@ -1,9 +1,9 @@
 [Unit]
 Description=Ironic HTTP Server Service (IPA Images and Boot ISOs)
 Documentation=https://docs.openstack.org/ironic/latest/
-After=docker.service ipa-downloader.service
+After=docker.service ipa-downloader.service os-image-downloader.service
 Requires=docker.service
-Wants=ipa-downloader.service
+Wants=ipa-downloader.service os-image-downloader.service
 
 [Service]
 Type=simple

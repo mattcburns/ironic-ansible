@@ -220,6 +220,7 @@ ironic_ipa_kernel_append_params: "nofb vga=normal"
 ironic_ipa_ssh_public_key: ""
 
 ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
+os_image_downloader_script_path: "/opt/ironic/os-image-downloader.sh"
 # -----------------------------------------------------------------------------
 # Provisioning Image Mirror (Ubuntu LTS)
 # -----------------------------------------------------------------------------
