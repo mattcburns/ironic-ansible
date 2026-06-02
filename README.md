@@ -223,7 +223,7 @@ openstack --os-cloud ironic baremetal node list
 1. Make the node manageable: `ironic-cli node manage <node id>`
 1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data network_data.json <node id>`
 1. Make the node available for provisioning and trigger a cleaning: `ironic-cli node provide <node id>`
-1. Configure the OS to provision (default mirrored image): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/ubuntu/ubuntu-lts-server-cloudimg-amd64.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/ubuntu/ubuntu-lts-server-cloudimg-amd64.img.sha256)`
+1. Configure the OS to provision (default mirrored image): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img.sha256)`
 1. Provision the node: `ironic-cli node deploy <node id> --configdrive <some cloudinit json, optional>`
 
 
@@ -331,16 +331,18 @@ ubuntu_lts_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-serve
 ubuntu_lts_meta_release_url: "https://changelogs.ubuntu.com/meta-release-lts"
 ubuntu_lts_image_arch: "amd64"
 ubuntu_lts_image_directory: "{{ ironic_http_images_dir }}/ubuntu"
-ubuntu_lts_image_filename: "ubuntu-lts-server-cloudimg-{{ ubuntu_lts_image_arch }}.img"
+ubuntu_lts_image_filename: "{{ ubuntu_lts_image_url | regex_replace('^.*/', '') | regex_replace('\\?.*$', '') }}"  # derived from upstream URL basename
 ubuntu_lts_image_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/ubuntu/{{ ubuntu_lts_image_filename }}"
 ubuntu_lts_image_checksum_http_url: "{{ ubuntu_lts_image_http_url }}.sha256"
 ```
 
 When `ubuntu_lts_image_enabled` is true, deploy downloads a cloud image into
 `{{ ubuntu_lts_image_directory }}` and writes a SHA256 checksum file alongside
-it. Set `ubuntu_lts_image_url` to an empty string if you want to auto-resolve
-the latest LTS dynamically from `ubuntu_lts_meta_release_url`. The deploy
-summary prints both HTTP URLs so you can use them directly with
+it. The mirrored filename is derived from the upstream image URL basename
+(`ubuntu_lts_image_url`), so codename-based names always match the downloaded
+artifact. Set `ubuntu_lts_image_url` to an empty string if you want to
+auto-resolve the latest LTS dynamically from `ubuntu_lts_meta_release_url`.
+The deploy summary prints both HTTP URLs so you can use them directly with
 `--instance-info image_source` and SHA256 `image_os_hash_*` fields.
 
 ### Conductor Scaling (Simple Default)

@@ -232,7 +232,8 @@ ubuntu_lts_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-serve
 ubuntu_lts_meta_release_url: "https://changelogs.ubuntu.com/meta-release-lts"
 ubuntu_lts_image_arch: "amd64"
 ubuntu_lts_image_directory: "{{ ironic_http_images_dir }}/ubuntu"
-ubuntu_lts_image_filename: "ubuntu-lts-server-cloudimg-{{ ubuntu_lts_image_arch }}.img"
+# Keep the mirrored filename aligned with the upstream artifact name (codename included).
+ubuntu_lts_image_filename: "{{ ubuntu_lts_image_url | regex_replace('^.*/', '') | regex_replace('\\?.*$', '') }}"
 ubuntu_lts_image_local_path: "{{ ubuntu_lts_image_directory }}/{{ ubuntu_lts_image_filename }}"
 ubuntu_lts_image_checksum_local_path: "{{ ubuntu_lts_image_local_path }}.sha256"
 ubuntu_lts_image_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/ubuntu/{{ ubuntu_lts_image_filename }}"

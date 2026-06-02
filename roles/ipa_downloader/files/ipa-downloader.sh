@@ -21,9 +21,9 @@ UBUNTU_LTS_IMAGE_URL="${UBUNTU_LTS_IMAGE_URL:-}"
 UBUNTU_LTS_META_RELEASE_URL="${UBUNTU_LTS_META_RELEASE_URL:-https://changelogs.ubuntu.com/meta-release-lts}"
 UBUNTU_LTS_IMAGE_ARCH="${UBUNTU_LTS_IMAGE_ARCH:-amd64}"
 UBUNTU_LTS_IMAGE_DIR="${UBUNTU_LTS_IMAGE_DIR:-/var/lib/ironic/http-images/ubuntu}"
-UBUNTU_LTS_IMAGE_FILENAME="${UBUNTU_LTS_IMAGE_FILENAME:-ubuntu-lts-server-cloudimg-${UBUNTU_LTS_IMAGE_ARCH}.img}"
-UBUNTU_LTS_IMAGE_PATH="${UBUNTU_LTS_IMAGE_PATH:-${UBUNTU_LTS_IMAGE_DIR}/${UBUNTU_LTS_IMAGE_FILENAME}}"
-UBUNTU_LTS_IMAGE_CHECKSUM_PATH="${UBUNTU_LTS_IMAGE_CHECKSUM_PATH:-${UBUNTU_LTS_IMAGE_PATH}.sha256}"
+UBUNTU_LTS_IMAGE_FILENAME="${UBUNTU_LTS_IMAGE_FILENAME:-}"
+UBUNTU_LTS_IMAGE_PATH="${UBUNTU_LTS_IMAGE_PATH:-}"
+UBUNTU_LTS_IMAGE_CHECKSUM_PATH="${UBUNTU_LTS_IMAGE_CHECKSUM_PATH:-}"
 
 IPA_FILES=("$IPA_KERNEL" "$IPA_RAMDISK")
 
@@ -122,6 +122,25 @@ resolve_ubuntu_lts_image_url() {
         "$distro_codename" "$distro_codename" "$UBUNTU_LTS_IMAGE_ARCH"
 }
 
+set_ubuntu_lts_target_paths() {
+    local source_url="$1"
+    local source_filename
+    source_filename="$(basename "${source_url%%\?*}")"
+
+    if [ -z "$source_filename" ]; then
+        log_error "Unable to derive Ubuntu LTS filename from source URL: ${source_url}"
+        return 1
+    fi
+
+    if [ -n "$UBUNTU_LTS_IMAGE_FILENAME" ] && [ "$UBUNTU_LTS_IMAGE_FILENAME" != "$source_filename" ]; then
+        log_warn "Overriding Ubuntu LTS filename ${UBUNTU_LTS_IMAGE_FILENAME} with upstream filename ${source_filename}"
+    fi
+
+    UBUNTU_LTS_IMAGE_FILENAME="$source_filename"
+    UBUNTU_LTS_IMAGE_PATH="${UBUNTU_LTS_IMAGE_DIR}/${UBUNTU_LTS_IMAGE_FILENAME}"
+    UBUNTU_LTS_IMAGE_CHECKSUM_PATH="${UBUNTU_LTS_IMAGE_PATH}.sha256"
+}
+
 write_checksum() {
     local image_path="$1"
     local checksum_path="$2"
@@ -205,8 +224,12 @@ main() {
     if is_true "$UBUNTU_LTS_IMAGE_ENABLED"; then
         local ubuntu_source_url
         if ubuntu_source_url="$(resolve_ubuntu_lts_image_url)"; then
-            download_url "$ubuntu_source_url" "$UBUNTU_LTS_IMAGE_PATH" "$UBUNTU_LTS_IMAGE_FILENAME" || true
-            write_checksum "$UBUNTU_LTS_IMAGE_PATH" "$UBUNTU_LTS_IMAGE_CHECKSUM_PATH" || true
+            if set_ubuntu_lts_target_paths "$ubuntu_source_url"; then
+                download_url "$ubuntu_source_url" "$UBUNTU_LTS_IMAGE_PATH" "$UBUNTU_LTS_IMAGE_FILENAME" || true
+                write_checksum "$UBUNTU_LTS_IMAGE_PATH" "$UBUNTU_LTS_IMAGE_CHECKSUM_PATH" || true
+            else
+                log_error "Failed to derive Ubuntu LTS target filename/path from source URL"
+            fi
         else
             log_error "Failed to resolve Ubuntu LTS image URL"
         fi
