@@ -1,0 +1,17 @@
+{
+  "ignition": {
+    "version": "3.3.0"
+  },
+  "storage": {
+    "files": [
+      {
+        "path": "/etc/flatcar-demo.txt",
+        "mode": 420,
+        "overwrite": true,
+        "contents": {
+          "source": "data:,Flatcar%20Ignition%20demo%20applied%20via%20Ironic.%0ACheck%20%2Fetc%2Fflatcar-demo.txt%20after%20boot.%0A"
+        }
+      }
+    ]
+  }
+}

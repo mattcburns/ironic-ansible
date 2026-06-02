@@ -45,7 +45,7 @@
     enabled: true
     state: restarted
     daemon_reload: true
-  when: ubuntu_lts_image_enabled | bool
+  when: (ubuntu_lts_image_enabled | bool) or (flatcar_image_enabled | bool)
 
 - name: Stop and disable OS image downloader when disabled
   ansible.builtin.systemd:
@@ -53,7 +53,7 @@
     enabled: false
     state: stopped
     daemon_reload: true
-  when: not (ubuntu_lts_image_enabled | bool)
+  when: not ((ubuntu_lts_image_enabled | bool) or (flatcar_image_enabled | bool))
 
 - name: Wait for IPA images to be downloaded
   ansible.builtin.wait_for:
@@ -78,6 +78,24 @@
   when:
     - ubuntu_lts_image_enabled | bool
     - ubuntu_lts_image_filename | default('') | trim | length > 0
+
+- name: Wait for Flatcar image to be downloaded
+  ansible.builtin.wait_for:
+    path: "{{ flatcar_image_local_path }}"
+    timeout: 1200
+  failed_when: false
+  when:
+    - flatcar_image_enabled | bool
+    - flatcar_image_filename | default('') | trim | length > 0
+
+- name: Wait for Flatcar checksum to be generated
+  ansible.builtin.wait_for:
+    path: "{{ flatcar_image_checksum_local_path }}"
+    timeout: 60
+  failed_when: false
+  when:
+    - flatcar_image_enabled | bool
+    - flatcar_image_filename | default('') | trim | length > 0
 
 - name: Wait for Ubuntu LTS checksum to be generated
   ansible.builtin.wait_for:

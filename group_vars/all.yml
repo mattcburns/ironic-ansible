@@ -240,6 +240,28 @@ ubuntu_lts_image_local_path: "{{ ubuntu_lts_image_directory }}/{{ ubuntu_lts_ima
 ubuntu_lts_image_checksum_local_path: "{{ ubuntu_lts_image_local_path }}.sha256"
 ubuntu_lts_image_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/ubuntu/{{ ubuntu_lts_image_filename }}"
 ubuntu_lts_image_checksum_http_url: "{{ ubuntu_lts_image_http_url }}.sha256"
+# -----------------------------------------------------------------------------
+# Provisioning Image Mirror (Flatcar Linux)
+# -----------------------------------------------------------------------------
+# Optional Flatcar mirror. Disabled by default to avoid extra downloads.
+flatcar_image_enabled: false
+# Override this URL to pin a specific release or custom mirror.
+flatcar_image_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_qemu_image.img"
+flatcar_image_disk_format: "qcow2"
+flatcar_image_directory: "{{ ironic_http_images_dir }}/flatcar"
+flatcar_image_filename: "{{ (flatcar_image_url.split('?') | first) | basename }}"
+flatcar_image_local_path: "{{ flatcar_image_directory }}/{{ flatcar_image_filename }}"
+flatcar_image_checksum_local_path: "{{ flatcar_image_local_path }}.sha256"
+flatcar_image_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/flatcar/{{ flatcar_image_filename }}"
+flatcar_image_checksum_http_url: "{{ flatcar_image_http_url }}.sha256"
+# Ignition config path/URL for Flatcar first boot (ramdisk workflow docs).
+flatcar_ignition_filename: "config.ign"
+flatcar_ignition_local_path: "{{ flatcar_image_directory }}/{{ flatcar_ignition_filename }}"
+flatcar_ignition_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/flatcar/{{ flatcar_ignition_filename }}"
+# Default Flatcar ramdisk artifacts and kernel args for ramdisk deploy mode.
+flatcar_ramdisk_kernel_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_pxe.vmlinuz"
+flatcar_ramdisk_initramfs_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_pxe_image.cpio.gz"
+flatcar_ramdisk_kernel_params: "flatcar.first_boot=1 ignition.config.url={{ flatcar_ignition_http_url }}"
 
 # -----------------------------------------------------------------------------
 # SSL/TLS (Optional)

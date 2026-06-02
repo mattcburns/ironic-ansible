@@ -115,6 +115,7 @@
         - "{{ ironic_var_log_dir }}"
         - "{{ ipa_downloader_script_path | dirname }}"
         - "{{ ubuntu_lts_image_directory }}"
+        - "{{ flatcar_image_directory }}"
 
     - name: Remove service user
       ansible.builtin.user:

@@ -1,5 +1,5 @@
 [Unit]
-Description=Ironic Ubuntu LTS Image Downloader
+Description=Ironic OS Image Downloader
 After=network-online.target
 Wants=network-online.target
 
@@ -15,10 +15,16 @@ Environment=UBUNTU_LTS_IMAGE_DIR={{ ubuntu_lts_image_directory }}
 Environment=UBUNTU_LTS_IMAGE_FILENAME={{ ubuntu_lts_image_filename }}
 Environment=UBUNTU_LTS_IMAGE_PATH={{ ubuntu_lts_image_local_path }}
 Environment=UBUNTU_LTS_IMAGE_CHECKSUM_PATH={{ ubuntu_lts_image_checksum_local_path }}
+Environment=FLATCAR_IMAGE_ENABLED={{ 'true' if flatcar_image_enabled | bool else 'false' }}
+Environment=FLATCAR_IMAGE_URL={{ flatcar_image_url }}
+Environment=FLATCAR_IMAGE_DIR={{ flatcar_image_directory }}
+Environment=FLATCAR_IMAGE_FILENAME={{ flatcar_image_filename }}
+Environment=FLATCAR_IMAGE_PATH={{ flatcar_image_local_path }}
+Environment=FLATCAR_IMAGE_CHECKSUM_PATH={{ flatcar_image_checksum_local_path }}
 
 ExecStart={{ os_image_downloader_script_path }}
 
-TimeoutStartSec=1200
+TimeoutStartSec=1800
 TimeoutStopSec=10
 
 [Install]
