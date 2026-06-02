@@ -154,9 +154,9 @@ ironic_enabled_hardware_types: "redfish"
 ironic_enabled_boot_interfaces: "redfish-virtual-media,redfish-https"
 ironic_default_boot_interface: "redfish-virtual-media"
 
-# Deploy: ramdisk for virtual media based ISO boot
+# Deploy: direct by default for image writing; keep ramdisk available as fallback.
 ironic_enabled_deploy_interfaces: "direct,ramdisk"
-ironic_default_deploy_interface: "ramdisk"
+ironic_default_deploy_interface: "direct"
 # Boot ISO settings for UEFI virtual-media ISO creation.
 # ESP image artifacts are sourced from:
 # https://github.com/mattcburns/ironic-iso
@@ -232,6 +232,7 @@ ubuntu_lts_image_enabled: true
 ubuntu_lts_image_url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-{{ ubuntu_lts_image_arch }}.img"
 ubuntu_lts_meta_release_url: "https://changelogs.ubuntu.com/meta-release-lts"
 ubuntu_lts_image_arch: "amd64"
+ubuntu_lts_image_disk_format: "qcow2"
 ubuntu_lts_image_directory: "{{ ironic_http_images_dir }}/ubuntu"
 # Keep the mirrored filename aligned with the upstream artifact name (codename included).
 ubuntu_lts_image_filename: "{{ ubuntu_lts_image_url | regex_replace('^.*/', '') | regex_replace('\\?.*$', '') }}"
