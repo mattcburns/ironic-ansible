@@ -231,14 +231,16 @@ openstack --os-cloud ironic baremetal node list
 Use this when you want a ramdisk-based workflow and need to pass Ignition URL kernel arguments on deploy.
 1. Ensure `ramdisk` deploy interface is enabled in `group_vars/all.yml` (`ironic_enabled_deploy_interfaces: "direct,ramdisk"` already includes it by default).
 1. Quick demo path: use the sample Ignition in this repo, `server_templates/flatcar-demo.ign`, via raw URL: `https://raw.githubusercontent.com/mattcburns/ironic-ansible/master/server_templates/flatcar-demo.ign` (replace `master` if testing from a different branch/tag).
+1. Local mirror path: deploy seeds a default sample Ignition at `flatcar_ignition_local_path` and serves it at `flatcar_ignition_http_url` (default `http://<ironic-host>:6180/flatcar/config.ign`). Replace the local file contents if you want custom Ignition behavior while keeping the same URL.
 1. Set ramdisk deploy mode and Flatcar boot artifacts for the demo:
    - `ironic-cli node set <node id> --deploy-interface ramdisk`
    - `ironic-cli node set <node id> --instance-info kernel=http://<ironic-host>:6180/flatcar/flatcar_production_image.vmlinuz --instance-info ramdisk=http://<ironic-host>:6180/flatcar/flatcar_production_image.bin.bz2 --instance-info ramdisk_kernel_arguments="flatcar.first_boot=1 ignition.config.url=https://raw.githubusercontent.com/mattcburns/ironic-ansible/master/server_templates/flatcar-demo.ign"`
-1. Optional: host your own Ignition config instead (for example from Ironic HTTP at `http://<ironic-host>:6180/flatcar/config.ign`) and set `ignition.config.url` to that location.
+1. Optional: host your own Ignition config at any URL and set `ignition.config.url` to that location.
 1. Deploy the node: `ironic-cli node deploy <node id>`
 
 Note: ramdisk deploy boots the supplied kernel/initramfs workload from memory and does not perform a persistent whole-disk image write.
 The demo Ignition writes `/etc/flatcar-demo.txt` so you can quickly verify that Ignition applied.
+The sample also configures a demo login for validation: username `demo`, password `demo-password` (intentionally insecure; demo use only).
 Flatcar release artifact names can vary by channel/release; if needed, override `flatcar_ramdisk_kernel_source_url` and `flatcar_ramdisk_initramfs_source_url` in `group_vars/all.yml` to match your target release.
 
 
@@ -367,7 +369,7 @@ The deploy summary prints both HTTP URLs so you can use them directly with
 ### Provisioning Image Mirror (Flatcar)
 
 ```yaml
-flatcar_image_enabled: false
+flatcar_image_enabled: true
 flatcar_image_directory: "{{ ironic_http_images_dir }}/flatcar"
 flatcar_ignition_filename: "config.ign"
 flatcar_ignition_local_path: "{{ flatcar_image_directory }}/{{ flatcar_ignition_filename }}"
@@ -386,6 +388,9 @@ Set `flatcar_image_enabled=true` to mirror Flatcar ramdisk live-boot artifacts v
 Ramdisk deploy artifacts are mirrored from `flatcar_ramdisk_*_source_url` and exposed via
 `flatcar_ramdisk_kernel_http_url` / `flatcar_ramdisk_initramfs_http_url`, so deployment
 commands can use local HTTP URLs instead of upstream release URLs.
+Deploy also seeds `flatcar_ignition_local_path` from `server_templates/flatcar-demo.ign` when
+that file does not already exist, so `flatcar_ignition_http_url` is immediately usable for
+the QUICKSTART ramdisk workflow.
 For ramdisk-based workflows, `flatcar_ramdisk_*` and `flatcar_ignition_*` provide
 defaults for kernel/initramfs boot and Ignition URL injection.
 

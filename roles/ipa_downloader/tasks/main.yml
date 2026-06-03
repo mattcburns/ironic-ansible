@@ -54,6 +54,20 @@
     state: stopped
     daemon_reload: true
   when: not ((ubuntu_lts_image_enabled | bool) or (flatcar_image_enabled | bool))
+- name: Ensure Flatcar image directory exists
+  ansible.builtin.file:
+    path: "{{ flatcar_image_directory }}"
+    state: directory
+    mode: '0755'
+  when: flatcar_image_enabled | bool
+
+- name: Seed default Flatcar ignition file when missing
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../server_templates/flatcar-demo.ign"
+    dest: "{{ flatcar_ignition_local_path }}"
+    mode: '0644'
+    force: false
+  when: flatcar_image_enabled | bool
 
 - name: Wait for IPA images to be downloaded
   ansible.builtin.wait_for:

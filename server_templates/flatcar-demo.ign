@@ -2,6 +2,14 @@
   "ignition": {
     "version": "3.3.0"
   },
+  "passwd": {
+    "users": [
+      {
+        "name": "demo",
+        "passwordHash": "$6$flatcar-demo$55AP79Pwq23t0eJE6dC3K1sRgBIFv41lHSvuI.7SLYTJeC2saCmwH5j6NCo/dz/wA7w.2g2lUStW.leG25GCd1"
+      }
+    ]
+  },
   "storage": {
     "files": [
       {
