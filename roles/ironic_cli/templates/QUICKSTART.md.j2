@@ -92,16 +92,10 @@ For a quick end-to-end demo, this repository includes `server_templates/flatcar-
   --instance-info image_os_hash_algo=sha256 \
   --instance-info image_os_hash_value=$(curl -fsSL {{ flatcar_image_checksum_http_url }})
 
-# 3) Build config-drive directory with Ignition as user_data
-CONFIGDRIVE_DIR=$(mktemp -d)
-mkdir -p "${CONFIGDRIVE_DIR}/openstack/latest"
-cp {{ flatcar_ignition_local_path }} "${CONFIGDRIVE_DIR}/openstack/latest/user_data"
-
-# 4) Deploy using config-drive user_data
-{{ ironic_cli_wrapper_path }} node deploy <node id> --config-drive "${CONFIGDRIVE_DIR}"
-
-# 5) Cleanup temp directory
-rm -rf "${CONFIGDRIVE_DIR}"
+# 3) Deploy using config-drive user_data blob (server-side config-drive build)
+{{ ironic_cli_wrapper_path }} node deploy <node id> --config-drive "$(
+  jq -cn --rawfile ign {{ flatcar_ignition_local_path }} '{user_data:$ign}'
+)"
 ```
 The demo Ignition writes `/etc/flatcar-demo.txt` so you can validate that Ignition ran successfully.
 It also creates a demo login for quick verification: username `demo`, password `demo-password` (intentionally insecure; demo use only).

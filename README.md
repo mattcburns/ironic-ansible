@@ -236,13 +236,8 @@ The Flatcar image URL used in the commands below (`http://<ironic-host>:6180/fla
 1. Set direct deploy mode and Flatcar image info:
    - `ironic-cli node set <node id> --deploy-interface direct`
    - `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/flatcar/flatcar_production_openstack_image.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/flatcar/flatcar_production_openstack_image.img.sha256)`
-1. Build a config-drive directory that injects Ignition as user_data:
-   - `CONFIGDRIVE_DIR=$(mktemp -d)`
-   - `mkdir -p "${CONFIGDRIVE_DIR}/openstack/latest"`
-   - `cp /var/lib/ironic/http-images/flatcar/config.ign "${CONFIGDRIVE_DIR}/openstack/latest/user_data"`
-1. Deploy with config-drive and cleanup:
-   - `ironic-cli node deploy <node id> --config-drive "${CONFIGDRIVE_DIR}"`
-   - `rm -rf "${CONFIGDRIVE_DIR}"`
+1. Deploy with a config-drive JSON blob that embeds Ignition as `user_data` (server-side config-drive build):
+   - `ironic-cli node deploy <node id> --config-drive "$(jq -cn --rawfile ign /var/lib/ironic/http-images/flatcar/config.ign '{user_data:$ign}')"`
 
 Note: direct deploy writes the Flatcar whole-disk image to the target disk. Ignition is consumed on first boot from config-drive `user_data`.
 The demo Ignition writes `/etc/flatcar-demo.txt` so you can quickly verify that Ignition applied.
