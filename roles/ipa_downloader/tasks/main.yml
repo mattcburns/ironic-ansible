@@ -79,23 +79,42 @@
     - ubuntu_lts_image_enabled | bool
     - ubuntu_lts_image_filename | default('') | trim | length > 0
 
-- name: Wait for Flatcar image to be downloaded
+- name: Wait for Flatcar ramdisk kernel to be downloaded
   ansible.builtin.wait_for:
-    path: "{{ flatcar_image_local_path }}"
+    path: "{{ flatcar_ramdisk_kernel_local_path }}"
     timeout: 1200
   failed_when: false
   when:
     - flatcar_image_enabled | bool
-    - flatcar_image_filename | default('') | trim | length > 0
+    - flatcar_ramdisk_kernel_filename | default('') | trim | length > 0
 
-- name: Wait for Flatcar checksum to be generated
+- name: Wait for Flatcar ramdisk initramfs to be downloaded
   ansible.builtin.wait_for:
-    path: "{{ flatcar_image_checksum_local_path }}"
+    path: "{{ flatcar_ramdisk_initramfs_local_path }}"
+    timeout: 1200
+  failed_when: false
+  when:
+    - flatcar_image_enabled | bool
+    - flatcar_ramdisk_initramfs_filename | default('') | trim | length > 0
+
+
+- name: Wait for Flatcar ramdisk kernel checksum to be generated
+  ansible.builtin.wait_for:
+    path: "{{ flatcar_ramdisk_kernel_checksum_local_path }}"
     timeout: 60
   failed_when: false
   when:
     - flatcar_image_enabled | bool
-    - flatcar_image_filename | default('') | trim | length > 0
+    - flatcar_ramdisk_kernel_filename | default('') | trim | length > 0
+
+- name: Wait for Flatcar ramdisk initramfs checksum to be generated
+  ansible.builtin.wait_for:
+    path: "{{ flatcar_ramdisk_initramfs_checksum_local_path }}"
+    timeout: 60
+  failed_when: false
+  when:
+    - flatcar_image_enabled | bool
+    - flatcar_ramdisk_initramfs_filename | default('') | trim | length > 0
 
 - name: Wait for Ubuntu LTS checksum to be generated
   ansible.builtin.wait_for:

@@ -13,7 +13,7 @@ A complete Ansible-based deployment solution for running OpenStack Ironic in sta
 - ✅ **Generated `clouds.yaml` profile**: Ansible writes `/etc/openstack/clouds.yaml` for `--os-cloud` auth
 - ✅ **Generated `QUICKSTART.md` cheat sheet**: Ansible writes command snippets and resolved URLs/paths to `/etc/ironic/QUICKSTART.md`
 - ✅ **Ubuntu LTS image mirror**: Downloads and serves a Ubuntu LTS cloud image for provisioning (default pinned to 24.04)
-- ✅ **Flatcar image mirror (optional)**: Downloads and serves a Flatcar image from a configurable URL (with sane defaults)
+- ✅ **Flatcar ramdisk artifact mirror (optional)**: Downloads and serves Flatcar live-boot kernel/initramfs artifacts for ramdisk deployments
 - ✅ **Scalable conductors**: Systemd unit templates for dynamic conductor scaling
 - ✅ **Production-ready**: MariaDB and RabbitMQ for persistence and messaging
 
@@ -70,7 +70,7 @@ and docs before applying updates to existing environments.
 | **Ironic Conductor** | Executes deployment tasks (scalable) | N/A |
 | **Ironic CLI Helper** | Wrapper script that runs CLI tools in a container | N/A |
 | **IPA Downloader** | Fetches Ironic Python Agent images | N/A |
-| **OS Image Downloader** | Fetches and serves Ubuntu and optional Flatcar deployment image artifacts | N/A |
+| **OS Image Downloader** | Fetches and serves Ubuntu direct-deploy images and optional Flatcar ramdisk live-boot artifacts | N/A |
 
 ## 📁 Repository Layout (Current)
 
@@ -224,9 +224,7 @@ openstack --os-cloud ironic baremetal node list
 1. Make the node manageable: `ironic-cli node manage <node id>`
 1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data network_data.json <node id>`
 1. Make the node available for provisioning and trigger a cleaning: `ironic-cli node provide <node id>`
-1. Configure the OS image to provision (direct deploy, choose one):
-   - Ubuntu LTS mirror (default): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img.sha256)`
-   - Flatcar mirror (when enabled): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/flatcar/flatcar_production_qemu_image.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/flatcar/flatcar_production_qemu_image.img.sha256)`
+1. Configure the OS image to provision for direct deploy (Ubuntu example): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img.sha256)`
 1. Provision the node: `ironic-cli node deploy <node id> --configdrive <some cloudinit json, optional>`
 
 ### Flatcar Ramdisk Deployment with Ignition
@@ -235,13 +233,13 @@ Use this when you want a ramdisk-based workflow and need to pass Ignition URL ke
 1. Quick demo path: use the sample Ignition in this repo, `server_templates/flatcar-demo.ign`, via raw URL: `https://raw.githubusercontent.com/mattcburns/ironic-ansible/master/server_templates/flatcar-demo.ign` (replace `master` if testing from a different branch/tag).
 1. Set ramdisk deploy mode and Flatcar boot artifacts for the demo:
    - `ironic-cli node set <node id> --deploy-interface ramdisk`
-   - `ironic-cli node set <node id> --instance-info kernel=https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_pxe.vmlinuz --instance-info ramdisk=https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_pxe_image.cpio.gz --instance-info ramdisk_kernel_arguments="flatcar.first_boot=1 ignition.config.url=https://raw.githubusercontent.com/mattcburns/ironic-ansible/master/server_templates/flatcar-demo.ign"`
+   - `ironic-cli node set <node id> --instance-info kernel=http://<ironic-host>:6180/flatcar/flatcar_production_image.vmlinuz --instance-info ramdisk=http://<ironic-host>:6180/flatcar/flatcar_production_image.bin.bz2 --instance-info ramdisk_kernel_arguments="flatcar.first_boot=1 ignition.config.url=https://raw.githubusercontent.com/mattcburns/ironic-ansible/master/server_templates/flatcar-demo.ign"`
 1. Optional: host your own Ignition config instead (for example from Ironic HTTP at `http://<ironic-host>:6180/flatcar/config.ign`) and set `ignition.config.url` to that location.
 1. Deploy the node: `ironic-cli node deploy <node id>`
 
 Note: ramdisk deploy boots the supplied kernel/initramfs workload from memory and does not perform a persistent whole-disk image write.
 The demo Ignition writes `/etc/flatcar-demo.txt` so you can quickly verify that Ignition applied.
-Flatcar release artifact names can vary by channel/release; if needed, override `flatcar_ramdisk_kernel_url` and `flatcar_ramdisk_initramfs_url` in `group_vars/all.yml` to match your target release.
+Flatcar release artifact names can vary by channel/release; if needed, override `flatcar_ramdisk_kernel_source_url` and `flatcar_ramdisk_initramfs_source_url` in `group_vars/all.yml` to match your target release.
 
 
 ## 🔧 Configuration
@@ -370,22 +368,24 @@ The deploy summary prints both HTTP URLs so you can use them directly with
 
 ```yaml
 flatcar_image_enabled: false
-flatcar_image_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_qemu_image.img"
-flatcar_image_disk_format: "qcow2"
 flatcar_image_directory: "{{ ironic_http_images_dir }}/flatcar"
-flatcar_image_filename: "{{ (flatcar_image_url.split('?') | first) | basename }}"
-flatcar_image_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/flatcar/{{ flatcar_image_filename }}"
-flatcar_image_checksum_http_url: "{{ flatcar_image_http_url }}.sha256"
 flatcar_ignition_filename: "config.ign"
 flatcar_ignition_local_path: "{{ flatcar_image_directory }}/{{ flatcar_ignition_filename }}"
 flatcar_ignition_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/flatcar/{{ flatcar_ignition_filename }}"
-flatcar_ramdisk_kernel_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_pxe.vmlinuz"
-flatcar_ramdisk_initramfs_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_pxe_image.cpio.gz"
+flatcar_ramdisk_kernel_source_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_image.vmlinuz"
+flatcar_ramdisk_initramfs_source_url: "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_image.bin.bz2"
+flatcar_ramdisk_kernel_filename: "{{ (flatcar_ramdisk_kernel_source_url.split('?') | first) | basename }}"
+flatcar_ramdisk_initramfs_filename: "{{ (flatcar_ramdisk_initramfs_source_url.split('?') | first) | basename }}"
+flatcar_ramdisk_kernel_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/flatcar/{{ flatcar_ramdisk_kernel_filename }}"
+flatcar_ramdisk_initramfs_http_url: "http://{{ ironic_api_host }}:{{ ironic_http_port }}/flatcar/{{ flatcar_ramdisk_initramfs_filename }}"
+flatcar_ramdisk_kernel_url: "{{ flatcar_ramdisk_kernel_http_url }}"
+flatcar_ramdisk_initramfs_url: "{{ flatcar_ramdisk_initramfs_http_url }}"
 flatcar_ramdisk_kernel_params: "flatcar.first_boot=1 ignition.config.url={{ flatcar_ignition_http_url }}"
 ```
-
-Set `flatcar_image_enabled=true` to mirror Flatcar artifacts via the OS image downloader.
-You can override `flatcar_image_url` to use a pinned release or internal mirror.
+Set `flatcar_image_enabled=true` to mirror Flatcar ramdisk live-boot artifacts via the OS image downloader.
+Ramdisk deploy artifacts are mirrored from `flatcar_ramdisk_*_source_url` and exposed via
+`flatcar_ramdisk_kernel_http_url` / `flatcar_ramdisk_initramfs_http_url`, so deployment
+commands can use local HTTP URLs instead of upstream release URLs.
 For ramdisk-based workflows, `flatcar_ramdisk_*` and `flatcar_ignition_*` provide
 defaults for kernel/initramfs boot and Ignition URL injection.
 

@@ -16,11 +16,15 @@ Environment=UBUNTU_LTS_IMAGE_FILENAME={{ ubuntu_lts_image_filename }}
 Environment=UBUNTU_LTS_IMAGE_PATH={{ ubuntu_lts_image_local_path }}
 Environment=UBUNTU_LTS_IMAGE_CHECKSUM_PATH={{ ubuntu_lts_image_checksum_local_path }}
 Environment=FLATCAR_IMAGE_ENABLED={{ 'true' if flatcar_image_enabled | bool else 'false' }}
-Environment=FLATCAR_IMAGE_URL={{ flatcar_image_url }}
 Environment=FLATCAR_IMAGE_DIR={{ flatcar_image_directory }}
-Environment=FLATCAR_IMAGE_FILENAME={{ flatcar_image_filename }}
-Environment=FLATCAR_IMAGE_PATH={{ flatcar_image_local_path }}
-Environment=FLATCAR_IMAGE_CHECKSUM_PATH={{ flatcar_image_checksum_local_path }}
+Environment=FLATCAR_RAMDISK_KERNEL_SOURCE_URL={{ flatcar_ramdisk_kernel_source_url }}
+Environment=FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL={{ flatcar_ramdisk_initramfs_source_url }}
+Environment=FLATCAR_RAMDISK_KERNEL_FILENAME={{ flatcar_ramdisk_kernel_filename }}
+Environment=FLATCAR_RAMDISK_INITRAMFS_FILENAME={{ flatcar_ramdisk_initramfs_filename }}
+Environment=FLATCAR_RAMDISK_KERNEL_PATH={{ flatcar_ramdisk_kernel_local_path }}
+Environment=FLATCAR_RAMDISK_INITRAMFS_PATH={{ flatcar_ramdisk_initramfs_local_path }}
+Environment=FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH={{ flatcar_ramdisk_kernel_checksum_local_path }}
+Environment=FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH={{ flatcar_ramdisk_initramfs_checksum_local_path }}
 
 ExecStart={{ os_image_downloader_script_path }}
 

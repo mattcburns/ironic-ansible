@@ -26,8 +26,10 @@ Follow these rules to keep changes safe, minimal, idempotent, and easy to review
 1. Read task scope and identify the smallest viable change.
 2. Inspect only the files needed for that scope.
 3. Make focused edits; avoid opportunistic refactors.
-4. Run the minimum relevant validation commands from this file.
-5. Report changed files, what was validated, and any remaining risk.
+4. Run the minimum relevant validation commands from this file, preferring syntax checks by default.
+5. Do not run `ansible-playbook playbooks/validate.yml -i inventory` unless the user explicitly asks for it.
+6. Do not run `ansible-playbook playbooks/upgrade.yml -i inventory` or `ansible-playbook playbooks/destroy.yml -i inventory` unless the user explicitly asks for them.
+7. Report changed files, what was validated, and any remaining risk.
 
 ## Repository Bootstrap (when needed)
 1. Install collections:
@@ -92,9 +94,9 @@ Follow these rules to keep changes safe, minimal, idempotent, and easy to review
 Run these checks for meaningful changes:
 1. Syntax check:
    - `ansible-playbook --syntax-check playbooks/deploy.yml -i inventory`
-2. Deployment validation playbook:
+2. Deployment validation playbook (run only on explicit user request):
    - `ansible-playbook playbooks/validate.yml -i inventory`
-3. If your change impacts lifecycle flows, also exercise:
+3. Lifecycle validation playbooks (run only on explicit user request):
    - `ansible-playbook playbooks/upgrade.yml -i inventory` (upgrade-related changes)
    - `ansible-playbook playbooks/destroy.yml -i inventory` (teardown-related changes)
 
