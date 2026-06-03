@@ -244,7 +244,7 @@ ubuntu_lts_image_checksum_http_url: "{{ ubuntu_lts_image_http_url }}.sha256"
 # Provisioning Image Mirror (Flatcar Linux)
 # -----------------------------------------------------------------------------
 # Optional Flatcar ramdisk mirror (kernel/initramfs artifacts for ramdisk deploy mode).
-flatcar_image_enabled: false
+flatcar_image_enabled: true
 flatcar_image_directory: "{{ ironic_http_images_dir }}/flatcar"
 # Ignition config path/URL for Flatcar first boot (ramdisk workflow docs).
 flatcar_ignition_filename: "config.ign"
