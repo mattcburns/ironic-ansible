@@ -2,7 +2,7 @@
 # =============================================================================
 # OS Image Downloader
 # =============================================================================
-# Downloads Ubuntu LTS and Flatcar deployment artifacts and writes SHA256 checksum files.
+# Downloads Ubuntu LTS and Flatcar deployment images and writes SHA256 checksum files.
 # =============================================================================
 
 set -euo pipefail
@@ -17,17 +17,13 @@ UBUNTU_LTS_IMAGE_FILENAME="${UBUNTU_LTS_IMAGE_FILENAME:-}"
 UBUNTU_LTS_IMAGE_PATH="${UBUNTU_LTS_IMAGE_PATH:-}"
 UBUNTU_LTS_IMAGE_CHECKSUM_PATH="${UBUNTU_LTS_IMAGE_CHECKSUM_PATH:-}"
 
-# Flatcar ramdisk artifact configuration (overridable via environment)
+# Flatcar whole-disk image configuration (overridable via environment)
 FLATCAR_IMAGE_ENABLED="${FLATCAR_IMAGE_ENABLED:-false}"
 FLATCAR_IMAGE_DIR="${FLATCAR_IMAGE_DIR:-/var/lib/ironic/http-images/flatcar}"
-FLATCAR_RAMDISK_KERNEL_SOURCE_URL="${FLATCAR_RAMDISK_KERNEL_SOURCE_URL:-https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_image.vmlinuz}"
-FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL="${FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL:-https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_image.bin.bz2}"
-FLATCAR_RAMDISK_KERNEL_FILENAME="${FLATCAR_RAMDISK_KERNEL_FILENAME:-}"
-FLATCAR_RAMDISK_INITRAMFS_FILENAME="${FLATCAR_RAMDISK_INITRAMFS_FILENAME:-}"
-FLATCAR_RAMDISK_KERNEL_PATH="${FLATCAR_RAMDISK_KERNEL_PATH:-}"
-FLATCAR_RAMDISK_INITRAMFS_PATH="${FLATCAR_RAMDISK_INITRAMFS_PATH:-}"
-FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH="${FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH:-}"
-FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH="${FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH:-}"
+FLATCAR_IMAGE_SOURCE_URL="${FLATCAR_IMAGE_SOURCE_URL:-https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_openstack_image.img}"
+FLATCAR_IMAGE_FILENAME="${FLATCAR_IMAGE_FILENAME:-}"
+FLATCAR_IMAGE_PATH="${FLATCAR_IMAGE_PATH:-}"
+FLATCAR_IMAGE_CHECKSUM_PATH="${FLATCAR_IMAGE_CHECKSUM_PATH:-}"
 
 log()      { echo "[INFO]  $1"; }
 log_warn() { echo "[WARN]  $1"; }
@@ -124,35 +120,22 @@ set_ubuntu_lts_target_paths() {
     UBUNTU_LTS_IMAGE_CHECKSUM_PATH="${UBUNTU_LTS_IMAGE_PATH}.sha256"
 }
 
-set_flatcar_ramdisk_target_paths() {
-    local kernel_source_filename initramfs_source_filename
-    kernel_source_filename="$(basename "${FLATCAR_RAMDISK_KERNEL_SOURCE_URL%%\?*}")"
-    initramfs_source_filename="$(basename "${FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL%%\?*}")"
+set_flatcar_target_paths() {
+    local source_filename
+    source_filename="$(basename "${FLATCAR_IMAGE_SOURCE_URL%%\?*}")"
 
-    if [ -z "$kernel_source_filename" ]; then
-        log_error "Unable to derive Flatcar ramdisk kernel filename from source URL: ${FLATCAR_RAMDISK_KERNEL_SOURCE_URL}"
+    if [ -z "$source_filename" ]; then
+        log_error "Unable to derive Flatcar image filename from source URL: ${FLATCAR_IMAGE_SOURCE_URL}"
         return 1
     fi
 
-    if [ -z "$initramfs_source_filename" ]; then
-        log_error "Unable to derive Flatcar ramdisk initramfs filename from source URL: ${FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL}"
-        return 1
+    if [ -n "$FLATCAR_IMAGE_FILENAME" ] && [ "$FLATCAR_IMAGE_FILENAME" != "$source_filename" ]; then
+        log_warn "Overriding Flatcar image filename ${FLATCAR_IMAGE_FILENAME} with upstream filename ${source_filename}"
     fi
 
-    if [ -n "$FLATCAR_RAMDISK_KERNEL_FILENAME" ] && [ "$FLATCAR_RAMDISK_KERNEL_FILENAME" != "$kernel_source_filename" ]; then
-        log_warn "Overriding Flatcar ramdisk kernel filename ${FLATCAR_RAMDISK_KERNEL_FILENAME} with upstream filename ${kernel_source_filename}"
-    fi
-
-    if [ -n "$FLATCAR_RAMDISK_INITRAMFS_FILENAME" ] && [ "$FLATCAR_RAMDISK_INITRAMFS_FILENAME" != "$initramfs_source_filename" ]; then
-        log_warn "Overriding Flatcar ramdisk initramfs filename ${FLATCAR_RAMDISK_INITRAMFS_FILENAME} with upstream filename ${initramfs_source_filename}"
-    fi
-
-    FLATCAR_RAMDISK_KERNEL_FILENAME="$kernel_source_filename"
-    FLATCAR_RAMDISK_INITRAMFS_FILENAME="$initramfs_source_filename"
-    FLATCAR_RAMDISK_KERNEL_PATH="${FLATCAR_IMAGE_DIR}/${FLATCAR_RAMDISK_KERNEL_FILENAME}"
-    FLATCAR_RAMDISK_INITRAMFS_PATH="${FLATCAR_IMAGE_DIR}/${FLATCAR_RAMDISK_INITRAMFS_FILENAME}"
-    FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH="${FLATCAR_RAMDISK_KERNEL_PATH}.sha256"
-    FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH="${FLATCAR_RAMDISK_INITRAMFS_PATH}.sha256"
+    FLATCAR_IMAGE_FILENAME="$source_filename"
+    FLATCAR_IMAGE_PATH="${FLATCAR_IMAGE_DIR}/${FLATCAR_IMAGE_FILENAME}"
+    FLATCAR_IMAGE_CHECKSUM_PATH="${FLATCAR_IMAGE_PATH}.sha256"
 }
 
 write_checksum() {
@@ -186,25 +169,17 @@ process_ubuntu_lts_image() {
 }
 
 process_flatcar_image() {
-
-    if [ -z "$FLATCAR_RAMDISK_KERNEL_SOURCE_URL" ]; then
-        log_error "Flatcar mirror is enabled but FLATCAR_RAMDISK_KERNEL_SOURCE_URL is empty"
+    if [ -z "$FLATCAR_IMAGE_SOURCE_URL" ]; then
+        log_error "Flatcar mirror is enabled but FLATCAR_IMAGE_SOURCE_URL is empty"
         return 1
     fi
+    ensure_directory "$FLATCAR_IMAGE_DIR" "Flatcar image"
 
-    if [ -z "$FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL" ]; then
-        log_error "Flatcar mirror is enabled but FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL is empty"
-        return 1
-    fi
-    ensure_directory "$FLATCAR_IMAGE_DIR" "Flatcar ramdisk artifact"
-
-    if set_flatcar_ramdisk_target_paths; then
-        download_url "$FLATCAR_RAMDISK_KERNEL_SOURCE_URL" "$FLATCAR_RAMDISK_KERNEL_PATH" "$FLATCAR_RAMDISK_KERNEL_FILENAME" || true
-        write_checksum "$FLATCAR_RAMDISK_KERNEL_PATH" "$FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH" || true
-        download_url "$FLATCAR_RAMDISK_INITRAMFS_SOURCE_URL" "$FLATCAR_RAMDISK_INITRAMFS_PATH" "$FLATCAR_RAMDISK_INITRAMFS_FILENAME" || true
-        write_checksum "$FLATCAR_RAMDISK_INITRAMFS_PATH" "$FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH" || true
+    if set_flatcar_target_paths; then
+        download_url "$FLATCAR_IMAGE_SOURCE_URL" "$FLATCAR_IMAGE_PATH" "$FLATCAR_IMAGE_FILENAME" || true
+        write_checksum "$FLATCAR_IMAGE_PATH" "$FLATCAR_IMAGE_CHECKSUM_PATH" || true
     else
-        log_error "Failed to derive Flatcar ramdisk target filename/path values from source URLs"
+        log_error "Failed to derive Flatcar target filename/path values from source URL"
         return 1
     fi
 }
@@ -240,52 +215,27 @@ verify_downloads() {
     fi
 
     if is_true "$FLATCAR_IMAGE_ENABLED"; then
-
-        if [ ! -f "$FLATCAR_RAMDISK_KERNEL_PATH" ] || [ ! -s "$FLATCAR_RAMDISK_KERNEL_PATH" ]; then
-            log_error "Missing or empty: ${FLATCAR_RAMDISK_KERNEL_PATH}"
+        if [ ! -f "$FLATCAR_IMAGE_PATH" ] || [ ! -s "$FLATCAR_IMAGE_PATH" ]; then
+            log_error "Missing or empty: ${FLATCAR_IMAGE_PATH}"
             missing=$((missing + 1))
         else
-            local flatcar_kernel_size
-            flatcar_kernel_size=$(stat -c %s "$FLATCAR_RAMDISK_KERNEL_PATH")
-            log "Verified Flatcar ramdisk kernel ${FLATCAR_RAMDISK_KERNEL_PATH} (${flatcar_kernel_size} bytes)"
+            local flatcar_size
+            flatcar_size=$(stat -c %s "$FLATCAR_IMAGE_PATH")
+            log "Verified Flatcar image ${FLATCAR_IMAGE_PATH} (${flatcar_size} bytes)"
         fi
 
-        if [ ! -f "$FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH" ] || [ ! -s "$FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH" ]; then
-            log_error "Missing or empty: ${FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH}"
+        if [ ! -f "$FLATCAR_IMAGE_CHECKSUM_PATH" ] || [ ! -s "$FLATCAR_IMAGE_CHECKSUM_PATH" ]; then
+            log_error "Missing or empty: ${FLATCAR_IMAGE_CHECKSUM_PATH}"
             missing=$((missing + 1))
         else
-            local flatcar_kernel_expected_checksum flatcar_kernel_actual_checksum
-            flatcar_kernel_expected_checksum="$(sha256sum "$FLATCAR_RAMDISK_KERNEL_PATH" | awk '{print $1}')"
-            flatcar_kernel_actual_checksum="$(tr -d '[:space:]' < "$FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH")"
-            if [ "$flatcar_kernel_expected_checksum" != "$flatcar_kernel_actual_checksum" ]; then
-                log_error "Checksum mismatch for ${FLATCAR_RAMDISK_KERNEL_PATH}"
+            local flatcar_expected_checksum flatcar_actual_checksum
+            flatcar_expected_checksum="$(sha256sum "$FLATCAR_IMAGE_PATH" | awk '{print $1}')"
+            flatcar_actual_checksum="$(tr -d '[:space:]' < "$FLATCAR_IMAGE_CHECKSUM_PATH")"
+            if [ "$flatcar_expected_checksum" != "$flatcar_actual_checksum" ]; then
+                log_error "Checksum mismatch for ${FLATCAR_IMAGE_PATH}"
                 missing=$((missing + 1))
             else
-                log "Verified checksum file ${FLATCAR_RAMDISK_KERNEL_CHECKSUM_PATH}"
-            fi
-        fi
-
-        if [ ! -f "$FLATCAR_RAMDISK_INITRAMFS_PATH" ] || [ ! -s "$FLATCAR_RAMDISK_INITRAMFS_PATH" ]; then
-            log_error "Missing or empty: ${FLATCAR_RAMDISK_INITRAMFS_PATH}"
-            missing=$((missing + 1))
-        else
-            local flatcar_initramfs_size
-            flatcar_initramfs_size=$(stat -c %s "$FLATCAR_RAMDISK_INITRAMFS_PATH")
-            log "Verified Flatcar ramdisk initramfs ${FLATCAR_RAMDISK_INITRAMFS_PATH} (${flatcar_initramfs_size} bytes)"
-        fi
-
-        if [ ! -f "$FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH" ] || [ ! -s "$FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH" ]; then
-            log_error "Missing or empty: ${FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH}"
-            missing=$((missing + 1))
-        else
-            local flatcar_initramfs_expected_checksum flatcar_initramfs_actual_checksum
-            flatcar_initramfs_expected_checksum="$(sha256sum "$FLATCAR_RAMDISK_INITRAMFS_PATH" | awk '{print $1}')"
-            flatcar_initramfs_actual_checksum="$(tr -d '[:space:]' < "$FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH")"
-            if [ "$flatcar_initramfs_expected_checksum" != "$flatcar_initramfs_actual_checksum" ]; then
-                log_error "Checksum mismatch for ${FLATCAR_RAMDISK_INITRAMFS_PATH}"
-                missing=$((missing + 1))
-            else
-                log "Verified checksum file ${FLATCAR_RAMDISK_INITRAMFS_CHECKSUM_PATH}"
+                log "Verified checksum file ${FLATCAR_IMAGE_CHECKSUM_PATH}"
             fi
         fi
     fi
