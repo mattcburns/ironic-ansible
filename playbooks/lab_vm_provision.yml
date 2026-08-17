@@ -1,0 +1,10 @@
+---
+# Create the L1 lab VM on a Linux L0. Imported only when inventory has vm_l0.
+
+- name: Provision lab VM on L0
+  hosts: vm_l0
+  become: true
+  gather_facts: true
+  roles:
+    - role: lab_vm
+  tags: [provision]

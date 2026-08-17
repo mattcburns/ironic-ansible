@@ -1,0 +1,16 @@
+#cloud-config
+hostname: {{ lab_vm_name }}
+users:
+  - name: {{ lab_vm_user }}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    groups: [sudo]
+    ssh_authorized_keys:
+      - {{ lab_vm_pubkey }}
+package_update: true
+packages:
+  - python3
+  - python3-apt
+  - qemu-guest-agent
+runcmd:
+  - systemctl enable --now qemu-guest-agent || true

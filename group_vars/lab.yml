@@ -1,5 +1,5 @@
 ---
-# Applied only when the host is in the `lab` group (inventory.lab.yml).
+# Applied to the L1 lab VM (inventory.lab.yml and inventory.lab-remote.yml).
 # Does not affect a normal inventory.example deploy.
 
 lab_network_name: ironic-lab-net

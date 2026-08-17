@@ -1,0 +1,15 @@
+---
+# Destroy a playbook-created lab VM and its L0 management network.
+
+- name: Destroy lab VM on L0
+  hosts: vm_l0
+  become: true
+  gather_facts: true
+  environment:
+    LIBVIRT_DEFAULT_URI: "{{ lab_libvirt_uri | default('qemu:///system') }}"
+  tasks:
+    - name: Tear down lab VM resources
+      ansible.builtin.include_role:
+        name: lab_vm
+        tasks_from: destroy.yml
+  tags: [provision]

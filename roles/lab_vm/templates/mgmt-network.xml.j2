@@ -1,0 +1,15 @@
+<network>
+  <name>{{ lab_mgmt_network_name }}</name>
+  <bridge name="{{ lab_mgmt_network_bridge }}" stp="on" delay="0"/>
+  <forward mode="nat">
+    <nat>
+      <port start="1024" end="65535"/>
+    </nat>
+  </forward>
+  <ip address="{{ lab_mgmt_network_gateway }}" netmask="255.255.255.0">
+    <dhcp>
+      <range start="{{ lab_mgmt_network_dhcp_start }}" end="{{ lab_mgmt_network_dhcp_end }}"/>
+      <host mac="{{ lab_vm_mac }}" name="{{ lab_vm_name }}" ip="{{ lab_vm_host }}"/>
+    </dhcp>
+  </ip>
+</network>

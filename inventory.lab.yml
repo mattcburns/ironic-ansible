@@ -1,18 +1,23 @@
 ---
-# Local libvirt + sushy lab. The same host is in `lab` (BMC emulator)
-# and `ironic` (standalone Ironic). Production deploys keep using
-# inventory.example — they never load this file.
+# Linux operator: create the lab VM on this machine, then deploy into it.
 #
 #   ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass
+#
+# macOS: do not use this file. Start Lima and use inventory.lab-remote.yml.
 all:
   children:
+    vm_l0:
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_python_interpreter: "{{ ansible_playbook_python }}"
     lab:
       hosts:
         ironic-lab:
-          ansible_connection: local
-          ansible_python_interpreter: "{{ ansible_playbook_python }}"
+          ansible_host: 192.168.126.100
+          ansible_user: lab
+          ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/ironic_lab_vm"
+          ansible_python_interpreter: /usr/bin/python3
     ironic:
       hosts:
-        ironic-lab:
-          ansible_connection: local
-          ansible_python_interpreter: "{{ ansible_playbook_python }}"
+        ironic-lab: {}

@@ -1,7 +1,34 @@
 ---
-# One-clone local lab: libvirt guests + sushy-tools + standalone Ironic + enroll.
+# Two-tier lab:
+#   Linux + inventory.lab.yml:        create the VM, then deploy into it
+#   inventory.lab-remote.yml (macOS): deploy into a VM you already have
 #
 #   ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass
+
+- ansible.builtin.import_playbook: lab_vm_provision.yml
+  when: "'vm_l0' in groups"
+
+- name: Wait for a playbook-created lab VM
+  hosts: lab
+  gather_facts: false
+  tasks:
+    - name: Wait for SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 600
+        delay: 5
+      when: "'vm_l0' in groups"
+
+    - name: Wait for cloud-init to finish
+      ansible.builtin.command: cloud-init status --wait
+      register: lab_vm_cloud_init
+      changed_when: false
+      failed_when: lab_vm_cloud_init.rc not in [0, 2]
+      become: true
+      when: "'vm_l0' in groups"
+
+    - name: Gather facts from the lab VM
+      ansible.builtin.setup:
+      when: "'vm_l0' in groups"
 
 - name: Bring up lab host (libvirt + sushy)
   hosts: lab
@@ -19,9 +46,8 @@
     - name: Fail if KVM is unavailable
       ansible.builtin.fail:
         msg: >-
-          /dev/kvm is missing. Enable virtualization in firmware and ensure
-          the kvm_intel/kvm_amd module is loaded. Darwin cannot be the lab
-          host — use Lima (see lima/README.md).
+          /dev/kvm is missing inside the lab VM. On Linux L0, enable nested
+          virtualization. On macOS, Lima must have nestedVirtualization: true.
       when: not lab_kvm.stat.exists
 
     - name: Read total memory (MiB)
@@ -29,11 +55,11 @@
       register: lab_mem_mib
       changed_when: false
 
-    - name: Require at least 8 GiB RAM
+    - name: Require at least 8 GiB RAM in the lab VM
       ansible.builtin.assert:
         that:
           - lab_mem_mib.stdout | int >= 8192
-        fail_msg: "Need >= 8 GiB RAM, found {{ lab_mem_mib.stdout }} MiB."
+        fail_msg: "Lab VM needs >= 8 GiB RAM, found {{ lab_mem_mib.stdout }} MiB."
 
   roles:
     - role: lab_prereqs
@@ -49,11 +75,15 @@
     - name: Show lab endpoints
       ansible.builtin.debug:
         msg: |
-          Lab host is up.
+          Lab is up inside {{ inventory_hostname }} ({{ ansible_host }}).
 
-          Redfish:     http://{{ lab_service_host }}:{{ lab_sushy_port }}/redfish/v1
-          BMC user:    {{ lab_bmc_username }}
-          Lab gateway: {{ lab_network_gateway }} (nodes reach Ironic HTTP here)
+          From the operator:
+          - Ironic API: http://{{ ansible_host }}:{{ ironic_api_port | default(6385) }}
+          - Redfish:    http://{{ ansible_host }}:{{ lab_sushy_port }}/redfish/v1
+          BMC user: {{ lab_bmc_username }}
+
+          Inside the lab VM, nodes reach Ironic HTTP at
+          http://{{ lab_network_gateway }}:{{ ironic_http_port | default(6180) }}
 
           Nodes:
           {% for node in lab_bmc_nodes %}

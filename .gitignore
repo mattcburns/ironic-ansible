@@ -48,3 +48,4 @@ ansible.log
 # Temporary files
 *.tmp
 temp/
+.work/

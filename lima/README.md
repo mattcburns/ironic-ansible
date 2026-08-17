@@ -1,20 +1,18 @@
-# Lima path (macOS later)
+# User-supplied lab VM (macOS)
 
-The lab treats **one Linux machine** as the host: Docker, libvirt, sushy-tools, and Ironic all run there. On Fedora that host is this laptop. On macOS it should be a Lima VM, not Darwin.
+Darwin is operator-only. Nested KVM on macOS is not supported.
 
-Darwin is operator-only. Nested KVM on macOS is not a goal.
+1. Install Lima.
+2. `limactl start lima/lab.yaml` (nested virtualization on, 16 GiB).
+3. Set `ansible_host` / `ansible_user` in `inventory.lab-remote.yml` to the Lima instance.
+4. From the Mac:
 
-## Intended flow (not the default inventory yet)
+```bash
+ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml --ask-become-pass
+```
 
-1. Install Lima on the Mac.
-2. `limactl start lima/lab.yaml`
-3. Point `inventory.lab.yml` at the Lima instance over SSH (replace `ansible_connection: local`).
-4. From the Mac:  
-   `ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass`
+`lab_up` will not create or destroy that VM. `lab_down` cleans Ironic/sushy/nodes inside it and leaves Lima running.
 
-The Lima template enables nested virtualization and mounts your home directory. Apple Silicon will run an aarch64 Linux VM; the current node XML and IPA artifacts are x86_64. That mismatch is a later problem — do not block the Fedora lab on it.
+On Linux, prefer `inventory.lab.yml` so Ansible creates the VM on L0 for you.
 
-## What this repo will not do
-
-- Run libvirt on Darwin
-- Treat Docker Desktop as a substitute for the lab host
+Apple Silicon runs an aarch64 Linux VM; current L2 node XML and IPA artifacts are x86_64. That mismatch is later work.
