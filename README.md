@@ -86,7 +86,11 @@ The repository is organized around reusable Ansible roles and consolidated playb
 │   ├── validate.yml
 │   ├── upgrade.yml
 │   ├── destroy.yml
-│   └── rollback.yml
+│   ├── rollback.yml
+│   ├── lab_up.yml
+│   ├── lab_down.yml
+│   ├── lab_preflight.yml
+│   └── lab_smoke.yml
 └── roles/
     ├── common
     ├── mariadb
@@ -96,8 +100,41 @@ The repository is organized around reusable Ansible roles and consolidated playb
     ├── ironic_http
     ├── ironic_api
     ├── ironic_cli
-    └── ironic_conductor
+    ├── ironic_conductor
+    ├── lab_prereqs
+    ├── lab_firewall
+    ├── lab_libvirt
+    ├── lab_sushy
+    └── lab_enroll
 ```
+
+## Local lab (sushy + libvirt)
+
+The lab is **this repo**, not a second checkout. `playbooks/lab_up.yml` installs host packages, creates two virtual BMC guests, starts sushy-tools, runs the normal Ironic deploy, and enrolls the guests.
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+ansible-playbook -i inventory.lab.yml playbooks/lab_preflight.yml
+ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass
+ansible-playbook -i inventory.lab.yml playbooks/lab_smoke.yml --ask-become-pass
+```
+
+Lab inventory puts the same host in both `lab` and `ironic`. A production deploy that uses `inventory.example` never loads `group_vars/lab.yml`.
+
+| What | Lab value |
+|---|---|
+| Ironic API | `http://127.0.0.1:6385` (`admin` / `labpass`) |
+| Redfish | `http://127.0.0.1:8001/redfish/v1` (`admin` / `password`) |
+| Guests | `lab-node-1`, `lab-node-2` on `192.168.125.0/24` |
+| Ironic HTTP (from guests) | `http://192.168.125.1:6180` |
+
+Tear down:
+
+```bash
+ansible-playbook -i inventory.lab.yml playbooks/lab_down.yml --ask-become-pass
+```
+
+`lab_smoke.yml` does not boot IPA. After a node is `manageable`, use the same `ironic-cli` flow as a normal standalone deploy. macOS is operator-only via Lima — see [lima/README.md](lima/README.md).
 
 ## 🚀 Quick Start
 

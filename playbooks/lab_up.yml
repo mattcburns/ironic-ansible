@@ -1,0 +1,71 @@
+---
+# One-clone local lab: libvirt guests + sushy-tools + standalone Ironic + enroll.
+#
+#   ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass
+
+- name: Bring up lab host (libvirt + sushy)
+  hosts: lab
+  gather_facts: true
+  become: true
+  environment:
+    LIBVIRT_DEFAULT_URI: "{{ lab_libvirt_uri }}"
+
+  pre_tasks:
+    - name: Check /dev/kvm
+      ansible.builtin.stat:
+        path: /dev/kvm
+      register: lab_kvm
+
+    - name: Fail if KVM is unavailable
+      ansible.builtin.fail:
+        msg: >-
+          /dev/kvm is missing. Enable virtualization in firmware and ensure
+          the kvm_intel/kvm_amd module is loaded. Darwin cannot be the lab
+          host — use Lima (see lima/README.md).
+      when: not lab_kvm.stat.exists
+
+    - name: Read total memory (MiB)
+      ansible.builtin.command: awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo
+      register: lab_mem_mib
+      changed_when: false
+
+    - name: Require at least 8 GiB RAM
+      ansible.builtin.assert:
+        that:
+          - lab_mem_mib.stdout | int >= 8192
+        fail_msg: "Need >= 8 GiB RAM, found {{ lab_mem_mib.stdout }} MiB."
+
+  roles:
+    - role: lab_prereqs
+      tags: [prereqs]
+    - role: lab_firewall
+      tags: [firewall]
+    - role: lab_libvirt
+      tags: [libvirt]
+    - role: lab_sushy
+      tags: [sushy]
+
+  post_tasks:
+    - name: Show lab endpoints
+      ansible.builtin.debug:
+        msg: |
+          Lab host is up.
+
+          Redfish:     http://{{ lab_service_host }}:{{ lab_sushy_port }}/redfish/v1
+          BMC user:    {{ lab_bmc_username }}
+          Lab gateway: {{ lab_network_gateway }} (nodes reach Ironic HTTP here)
+
+          Nodes:
+          {% for node in lab_bmc_nodes %}
+          - {{ node.name }}  {{ node.ip }}
+          {% endfor %}
+
+- ansible.builtin.import_playbook: deploy.yml
+
+- name: Enroll sushy systems as Ironic nodes
+  hosts: ironic
+  gather_facts: false
+  become: false
+  roles:
+    - role: lab_enroll
+      tags: [enroll]

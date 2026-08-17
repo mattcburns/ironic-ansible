@@ -1,0 +1,85 @@
+---
+- name: Check whether node exists
+  ansible.builtin.command: virsh dominfo {{ node.name }}
+  register: lab_node_info
+  failed_when: false
+  changed_when: false
+
+- name: Check node disk
+  ansible.builtin.stat:
+    path: "{{ lab_libvirt_images_dir }}/{{ node.name }}.qcow2"
+  register: lab_node_disk
+
+- name: Create sparse node disk
+  ansible.builtin.command:
+    argv:
+      - qemu-img
+      - create
+      - -f
+      - qcow2
+      - "{{ lab_libvirt_images_dir }}/{{ node.name }}.qcow2"
+      - "{{ lab_node_disk_gb }}G"
+  when: not lab_node_disk.stat.exists
+  changed_when: true
+
+- name: Render domain XML
+  ansible.builtin.template:
+    src: vm-node.xml.j2
+    dest: "/tmp/lab-node-{{ node.name }}.xml"
+    mode: "0644"
+  register: lab_node_xml
+
+- name: Define node from template
+  ansible.builtin.command:
+    argv: [virsh, define, "/tmp/lab-node-{{ node.name }}.xml"]
+  when: lab_node_info.rc != 0 or lab_node_xml.changed
+  register: lab_node_define
+  changed_when: lab_node_info.rc != 0 or lab_node_xml.changed
+
+- name: Read state before CD-tray refresh
+  ansible.builtin.command: virsh domstate {{ node.name }}
+  register: lab_node_state_pre
+  changed_when: false
+  failed_when: false
+  when: lab_node_xml.changed and lab_node_info.rc == 0
+
+- name: Restart node so a new CD tray is live
+  ansible.builtin.shell: |
+    set -e
+    virsh destroy {{ node.name }} || true
+    virsh start {{ node.name }}
+  args:
+    executable: /bin/bash
+  when:
+    - lab_node_xml.changed
+    - lab_node_info.rc == 0
+    - lab_node_state_pre is defined
+    - "'running' in (lab_node_state_pre.stdout | default(''))"
+  changed_when: true
+
+- name: Autostart node
+  ansible.builtin.command: virsh autostart {{ node.name }}
+  register: lab_node_autostart
+  changed_when: "'marked as autostarted' in (lab_node_autostart.stdout | default(''))"
+  failed_when: false
+
+- name: Start new node
+  ansible.builtin.command: virsh start {{ node.name }}
+  when: lab_node_info.rc != 0
+  register: lab_node_start
+  changed_when: "'started' in (lab_node_start.stdout | default(''))"
+
+- name: Current node state
+  ansible.builtin.command: virsh domstate {{ node.name }}
+  register: lab_node_state
+  changed_when: false
+  failed_when: false
+
+- name: Ensure node is running
+  ansible.builtin.command: virsh start {{ node.name }}
+  when:
+    - lab_node_info.rc == 0
+    - "'running' not in (lab_node_state.stdout | default(''))"
+  register: lab_node_restart
+  changed_when: "'started' in (lab_node_restart.stdout | default(''))"
+  failed_when: false

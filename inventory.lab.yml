@@ -1,0 +1,18 @@
+---
+# Local libvirt + sushy lab. The same host is in `lab` (BMC emulator)
+# and `ironic` (standalone Ironic). Production deploys keep using
+# inventory.example — they never load this file.
+#
+#   ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass
+all:
+  children:
+    lab:
+      hosts:
+        ironic-lab:
+          ansible_connection: local
+          ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    ironic:
+      hosts:
+        ironic-lab:
+          ansible_connection: local
+          ansible_python_interpreter: "{{ ansible_playbook_python }}"

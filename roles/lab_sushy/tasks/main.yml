@@ -1,0 +1,108 @@
+---
+- name: Resolve BMC domain UUIDs when not already facted
+  when: lab_bmc_uuids is not defined
+  block:
+    - name: Read node libvirt UUIDs
+      ansible.builtin.command: virsh domuuid {{ item.name }}
+      loop: "{{ lab_bmc_nodes }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: lab_sushy_uuid_probe
+      changed_when: false
+
+    - name: Set lab_bmc_uuids
+      ansible.builtin.set_fact:
+        lab_bmc_uuids: "{{ lab_sushy_uuid_probe.results | map(attribute='stdout') | map('trim') | list }}"
+
+- name: Ensure sushy-tools directory exists
+  ansible.builtin.file:
+    path: "{{ lab_sushy_dir }}"
+    state: directory
+    mode: "0755"
+  tags: [config]
+
+- name: Generate sushy basic-auth line
+  ansible.builtin.command:
+    argv:
+      - htpasswd
+      - -nbB
+      - "{{ lab_bmc_username }}"
+      - "{{ lab_bmc_password }}"
+  register: lab_sushy_htpasswd
+  changed_when: false
+  no_log: true
+  tags: [config]
+
+- name: Write sushy basic-auth file
+  ansible.builtin.copy:
+    dest: "{{ lab_sushy_dir }}/auth.htpasswd"
+    content: "{{ lab_sushy_htpasswd.stdout }}\n"
+    mode: "0640"
+  tags: [config]
+
+- name: Render sushy-tools config
+  ansible.builtin.template:
+    src: sushy-conf.py.j2
+    dest: "{{ lab_sushy_dir }}/conf.py"
+    mode: "0644"
+  register: lab_sushy_conf
+  tags: [config]
+
+- name: Render sushy-tools compose file
+  ansible.builtin.template:
+    src: docker-compose.sushy.yml.j2
+    dest: "{{ lab_sushy_dir }}/docker-compose.sushy.yml"
+    mode: "0644"
+  register: lab_sushy_compose
+  tags: [compose]
+
+- name: Recreate sushy-tools when config changes
+  ansible.builtin.shell: |
+    set -e
+    cd {{ lab_sushy_dir }}
+    {{ lab_compose_shell }} -f docker-compose.sushy.yml up -d --force-recreate
+  args:
+    executable: /bin/bash
+  when: lab_sushy_compose.changed or lab_sushy_conf.changed
+  register: lab_sushy_recreate
+  changed_when: true
+  tags: [start, compose, config]
+
+- name: Start sushy-tools
+  ansible.builtin.shell: |
+    set -e
+    cd {{ lab_sushy_dir }}
+    {{ lab_compose_shell }} -f docker-compose.sushy.yml up -d
+  args:
+    executable: /bin/bash
+  when: not (lab_sushy_compose.changed or lab_sushy_conf.changed)
+  register: lab_sushy_start
+  changed_when: >-
+    lab_sushy_start.stdout is search('Created|Started|Recreated|Pulled')
+    or lab_sushy_start.stderr is search('Created|Started|Recreated|Pulled')
+  tags: [start]
+
+- name: Wait for Redfish root
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ lab_sushy_port }}/redfish/v1/"
+    url_username: "{{ lab_bmc_username }}"
+    url_password: "{{ lab_bmc_password }}"
+    force_basic_auth: true
+    method: GET
+    status_code: 200
+  register: lab_sushy_health
+  until: lab_sushy_health.status == 200
+  retries: 30
+  delay: 2
+  tags: [wait]
+
+- name: Verify Systems collection
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ lab_sushy_port }}/redfish/v1/Systems"
+    url_username: "{{ lab_bmc_username }}"
+    url_password: "{{ lab_bmc_password }}"
+    force_basic_auth: true
+    method: GET
+    status_code: 200
+  register: lab_sushy_systems
+  tags: [verify]

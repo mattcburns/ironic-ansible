@@ -1,0 +1,5 @@
+---
+# Empty CD tray is required: sushy-tools cannot hotplug a CD. InsertMedia
+# fills an existing tray. Eject removes the device from the live domain XML;
+# re-run lab_up --tags libvirt after a failed media cycle if smoke complains.
+lab_node_dual_cd: false

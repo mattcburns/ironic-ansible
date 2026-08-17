@@ -1,0 +1,61 @@
+---
+# Tear the lab down: Ironic first, then sushy + libvirt guests.
+#
+#   ansible-playbook -i inventory.lab.yml playbooks/lab_down.yml --ask-become-pass
+
+- ansible.builtin.import_playbook: destroy.yml
+
+- name: Tear down lab host (sushy + libvirt)
+  hosts: lab
+  gather_facts: true
+  become: true
+  environment:
+    LIBVIRT_DEFAULT_URI: "{{ lab_libvirt_uri }}"
+
+  tasks:
+    - name: Stop sushy-tools
+      ansible.builtin.shell: |
+        set -e
+        if [ -f {{ lab_sushy_dir }}/docker-compose.sushy.yml ]; then
+          {{ lab_compose_shell | default('docker compose') }} \
+            -f {{ lab_sushy_dir }}/docker-compose.sushy.yml down || true
+        fi
+        docker rm -f ironic-sushy-tools >/dev/null 2>&1 || true
+      args:
+        executable: /bin/bash
+      register: lab_sushy_down
+      changed_when: "'Removed' in (lab_sushy_down.stdout | default(''))"
+      failed_when: false
+      tags: [sushy]
+
+    - name: Destroy and undefine virtual BMC nodes
+      ansible.builtin.shell: |
+        set -e
+        for node in {{ lab_bmc_nodes | map(attribute='name') | join(' ') }}; do
+          virsh destroy "$node" || true
+          virsh undefine "$node" --remove-all-storage || true
+        done
+      args:
+        executable: /bin/bash
+      register: lab_nodes_down
+      changed_when: lab_nodes_down.stdout | length > 0
+      failed_when: false
+      tags: [libvirt]
+
+    - name: Destroy libvirt lab network
+      ansible.builtin.shell: |
+        set -e
+        virsh net-destroy {{ lab_network_name }} || true
+        virsh net-undefine {{ lab_network_name }} || true
+      args:
+        executable: /bin/bash
+      register: lab_net_down
+      changed_when: lab_net_down.stdout | length > 0
+      failed_when: false
+      tags: [libvirt]
+
+    - name: Remove lab infra directory
+      ansible.builtin.file:
+        path: "{{ lab_infra_dir }}"
+        state: absent
+      tags: [cleanup]

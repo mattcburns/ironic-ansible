@@ -1,0 +1,181 @@
+---
+- name: Install lab packages (Fedora / RHEL)
+  ansible.builtin.dnf:
+    name:
+      - python3
+      - python3-pip
+      - python3-libvirt
+      - python3-lxml
+      - python3-passlib
+      - python3-docker
+      - libvirt
+      - libvirt-daemon-kvm
+      - libvirt-client
+      - qemu-kvm
+      - qemu-img
+      - virt-install
+      - moby-engine
+      - docker-cli
+      - docker-compose
+      - httpd-tools
+      - git
+      - curl
+      - wget
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [packages]
+
+- name: Install lab packages (Debian / Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-libvirt
+      - python3-lxml
+      - python3-passlib
+      - python3-docker
+      - libvirt-daemon-system
+      - libvirt-clients
+      - qemu-system-x86
+      - qemu-utils
+      - virtinst
+      - docker.io
+      - docker-compose-v2
+      - apache2-utils
+      - git
+      - curl
+      - wget
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Fail on unsupported OS family
+  ansible.builtin.fail:
+    msg: >-
+      lab_prereqs has package lists for RedHat and Debian families only
+      (found {{ ansible_os_family }}). Darwin cannot be the lab host.
+  when: ansible_os_family not in ["RedHat", "Debian"]
+  tags: [packages]
+
+- name: Start and enable Docker
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+  tags: [services]
+
+- name: Probe system libvirt
+  ansible.builtin.command:
+    argv: [virsh, -c, "{{ lab_libvirt_uri }}", version]
+  register: lab_virsh_probe
+  changed_when: false
+  failed_when: false
+  tags: [services]
+
+- name: Start modular libvirt sockets when virsh is down
+  when: lab_virsh_probe.rc != 0
+  tags: [services]
+  block:
+    - name: Stat modular libvirt units
+      ansible.builtin.stat:
+        path: "/usr/lib/systemd/system/{{ item }}"
+      loop:
+        - virtqemud.socket
+        - virtnetworkd.socket
+        - virtstoraged.socket
+        - virtnodedevd.socket
+        - virtsecretd.socket
+      register: lab_modular_units
+
+    - name: Enable modular libvirt sockets
+      ansible.builtin.systemd:
+        name: "{{ item.item }}"
+        state: started
+        enabled: true
+      loop: "{{ lab_modular_units.results }}"
+      when: item.stat.exists | default(false)
+      failed_when: false
+
+- name: Start monolithic libvirtd when still down
+  when: lab_virsh_probe.rc != 0
+  tags: [services]
+  block:
+    - name: Stat libvirtd.service
+      ansible.builtin.stat:
+        path: /usr/lib/systemd/system/libvirtd.service
+      register: lab_libvirtd_unit
+
+    - name: Enable libvirtd
+      ansible.builtin.systemd:
+        name: libvirtd
+        state: started
+        enabled: true
+      when: lab_libvirtd_unit.stat.exists | default(false)
+      failed_when: false
+
+- name: Re-probe system libvirt
+  ansible.builtin.command:
+    argv: [virsh, -c, "{{ lab_libvirt_uri }}", version]
+  register: lab_virsh_probe2
+  changed_when: false
+  failed_when: false
+  tags: [services]
+
+- name: Fail if libvirt is still unusable
+  ansible.builtin.fail:
+    msg: >-
+      Cannot talk to {{ lab_libvirt_uri }}. Install libvirt/qemu and start
+      the system daemon (not the user session).
+  when: lab_virsh_probe2.rc != 0
+  tags: [services]
+
+- name: Resolve lab user for group membership
+  ansible.builtin.set_fact:
+    lab_primary_user: >-
+      {{ ansible_env.SUDO_USER | default(ansible_user, true) | default(ansible_user_id, true) }}
+  tags: [permissions]
+
+- name: Add lab user to libvirt and docker groups
+  ansible.builtin.user:
+    name: "{{ lab_primary_user }}"
+    groups: "{{ item }}"
+    append: true
+  loop:
+    - libvirt
+    - docker
+  failed_when: false
+  tags: [permissions]
+
+- name: Create sandbox infra directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ lab_infra_dir }}"
+    - "{{ lab_sushy_dir }}"
+    - "{{ lab_libvirt_images_dir }}"
+  tags: [directories]
+
+- name: Detect docker compose invocation
+  ansible.builtin.shell: |
+    set -e
+    if docker compose version >/dev/null 2>&1; then
+      echo "docker compose"
+    elif command -v docker-compose >/dev/null 2>&1; then
+      echo "docker-compose"
+    else
+      exit 1
+    fi
+  args:
+    executable: /bin/bash
+  register: lab_compose_detect
+  changed_when: false
+  tags: [compose]
+
+- name: Record compose command
+  ansible.builtin.set_fact:
+    lab_compose_shell: "{{ lab_compose_detect.stdout | trim }}"
+  tags: [compose]
