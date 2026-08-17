@@ -10,4 +10,4 @@ ethernets:
       - to: default
         via: {{ lab_mgmt_network_gateway }}
     nameservers:
-      addresses: [8.8.8.8, 1.1.1.1]
+      addresses: [{{ lab_mgmt_network_gateway }}, 8.8.8.8]
