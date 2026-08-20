@@ -1,0 +1,45 @@
+---
+# Applied to the L1 lab VM (inventory.lab.yml and inventory.lab-remote.yml).
+# Does not affect a normal inventory.example deploy.
+
+lab_network_name: ironic-lab-net
+lab_network: 192.168.125.0/24
+lab_network_gateway: 192.168.125.1
+lab_network_netmask: 255.255.255.0
+lab_network_bridge: labbr0
+lab_network_dhcp_start: 192.168.125.100
+lab_network_dhcp_end: 192.168.125.200
+
+lab_bmc_nodes:
+  - { name: lab-node-1, ip: 192.168.125.10, mac: "52:54:00:5a:01:01" }
+  - { name: lab-node-2, ip: 192.168.125.11, mac: "52:54:00:5a:01:02" }
+
+lab_node_memory_mib: 2048
+lab_node_vcpus: 2
+lab_node_disk_gb: 20
+lab_node_dual_cd: false
+
+lab_sushy_port: 8001
+lab_sushy_dir: /opt/ironic-lab/sushy-tools
+lab_infra_dir: /opt/ironic-lab
+lab_libvirt_uri: qemu:///system
+lab_libvirt_images_dir: /var/lib/libvirt/images
+sushy_tools_image: quay.io/metal3-io/sushy-tools:latest
+
+lab_bmc_username: admin
+lab_bmc_password: password
+lab_service_host: 127.0.0.1
+
+# IPA and virtual-media URLs must be reachable from guests and from sushy.
+ironic_api_host: "{{ lab_network_gateway }}"
+ironic_automated_clean: false
+
+# Lab-only passwords. Do not use a substring of node names (Ansible redacts
+# secret strings inside registered API JSON).
+ironic_admin_username: admin
+ironic_admin_password: labpass
+mariadb_password: labpass
+mariadb_root_password: labpass
+rabbitmq_password: labpass
+
+flatcar_image_enabled: false

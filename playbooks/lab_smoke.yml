@@ -1,0 +1,118 @@
+---
+# Fast health checks. Does not run a full IPA deploy.
+#
+#   ansible-playbook -i inventory.lab.yml playbooks/lab_smoke.yml --ask-become-pass
+
+- name: Smoke-test the lab
+  hosts: lab
+  gather_facts: false
+  become: true
+  environment:
+    LIBVIRT_DEFAULT_URI: "{{ lab_libvirt_uri }}"
+
+  tasks:
+    - name: Redfish root
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ lab_sushy_port }}/redfish/v1/"
+        url_username: "{{ lab_bmc_username }}"
+        url_password: "{{ lab_bmc_password }}"
+        force_basic_auth: true
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: smoke_redfish
+      failed_when: false
+      changed_when: false
+
+    - name: Redfish Systems collection
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ lab_sushy_port }}/redfish/v1/Systems"
+        url_username: "{{ lab_bmc_username }}"
+        url_password: "{{ lab_bmc_password }}"
+        force_basic_auth: true
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: smoke_systems
+      failed_when: false
+      changed_when: false
+
+    - name: Ironic API node list
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes"
+        url_username: "{{ ironic_admin_username }}"
+        url_password: "{{ ironic_admin_password }}"
+        force_basic_auth: true
+        headers:
+          X-OpenStack-Ironic-API-Version: "1.91"
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: smoke_ironic
+      failed_when: false
+      changed_when: false
+
+    - name: Node domain state and CD tray
+      ansible.builtin.shell: |
+        set -e
+        echo "state=$(virsh domstate {{ node.name }})"
+        echo "cdroms=$(virsh dumpxml {{ node.name }} | grep -c "device='cdrom'" || true)"
+        echo "serial=$(virsh ttyconsole {{ node.name }} || true)"
+      args:
+        executable: /bin/bash
+      loop: "{{ lab_bmc_nodes }}"
+      loop_control:
+        loop_var: node
+        label: "{{ node.name }}"
+      register: smoke_domains
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Redfish and Ironic are up
+      ansible.builtin.assert:
+        that:
+          - smoke_redfish.status | default(0) == 200
+          - smoke_systems.status | default(0) == 200
+          - smoke_ironic.status | default(0) == 200
+        fail_msg: >-
+          Smoke HTTP failed:
+          Redfish={{ smoke_redfish.status | default('err') }},
+          Systems={{ smoke_systems.status | default('err') }},
+          Ironic={{ smoke_ironic.status | default('err') }}.
+
+    - name: Assert Systems count matches inventory
+      ansible.builtin.assert:
+        that:
+          - (smoke_systems.json['Members@odata.count'] | default(smoke_systems.json.Members | length)) | int
+            == (lab_bmc_nodes | length)
+        fail_msg: >-
+          Expected {{ lab_bmc_nodes | length }} Redfish systems,
+          got {{ smoke_systems.json['Members@odata.count'] | default('unknown') }}.
+
+    - name: Assert each domain is running with a CD tray and serial
+      ansible.builtin.assert:
+        that:
+          - "'state=running' in (res.stdout | default(''))"
+          - (res.stdout | regex_search('cdroms=(\\d+)', '\\1') | first | default('0') | int)
+            >= (2 if (lab_node_dual_cd | bool) else 1)
+          - (res.stdout | regex_search('serial=(.+)', '\\1') | first | default('') | trim | length) > 0
+        fail_msg: "Domain check failed for {{ res.node.name }}:\n{{ res.stdout | default('') }}\n{{ res.stderr | default('') }}"
+      loop: "{{ smoke_domains.results }}"
+      loop_control:
+        loop_var: res
+        label: "{{ res.node.name }}"
+
+    - name: Assert enrolled Ironic node names
+      ansible.builtin.assert:
+        that:
+          - (smoke_ironic.json.nodes | map(attribute='name') | list)
+            is superset(lab_bmc_nodes | map(attribute='name') | list)
+        fail_msg: >-
+          Ironic nodes {{ smoke_ironic.json.nodes | map(attribute='name') | list }}
+          do not include {{ lab_bmc_nodes | map(attribute='name') | list }}.
+
+    - name: Smoke passed
+      ansible.builtin.debug:
+        msg: >-
+          Lab smoke passed: Redfish, {{ lab_bmc_nodes | length }} systems,
+          Ironic API, running domains with CD trays and serial consoles.

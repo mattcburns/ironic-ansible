@@ -1,0 +1,90 @@
+---
+# Open the node NAT bridge and Ironic/sushy ports. Libvirt usually attaches
+# its own networks to the libvirt zone; we make that explicit and allow the
+# ports guests use to reach Ironic HTTP on the gateway.
+
+- name: Check firewalld
+  ansible.builtin.command: firewall-cmd --state
+  register: lab_firewalld_state
+  changed_when: false
+  failed_when: false
+  tags: [firewall]
+
+- name: Configure firewalld for the lab
+  when:
+    - lab_firewalld_state.rc == 0
+    - "'running' in (lab_firewalld_state.stdout | default('') | lower)"
+  tags: [firewall]
+  block:
+    - name: List firewalld zones
+      ansible.builtin.command: firewall-cmd --get-zones
+      register: lab_fw_zones
+      changed_when: false
+
+    - name: Default zone
+      ansible.builtin.command: firewall-cmd --get-default-zone
+      register: lab_fw_default
+      changed_when: false
+
+    - name: Choose zone for the lab bridge
+      ansible.builtin.set_fact:
+        lab_fw_zone: >-
+          {{ 'libvirt' if 'libvirt' in lab_fw_zones.stdout.split()
+             else (lab_fw_default.stdout | trim) }}
+
+    - name: Attach lab bridge to zone (ok if bridge does not exist yet)
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --permanent
+          - --zone={{ lab_fw_zone }}
+          - --change-interface={{ lab_network_bridge }}
+      register: lab_fw_if
+      changed_when: lab_fw_if.rc == 0
+      failed_when: false
+
+    - name: Allow DNS / DHCP / masquerade on the lab zone
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --permanent
+          - --zone={{ lab_fw_zone }}
+          - "{{ item }}"
+      loop:
+        - --add-service=dns
+        - --add-service=dhcp
+        - --add-masquerade
+      register: lab_fw_svc
+      changed_when: "'success' in (lab_fw_svc.stdout | default(''))"
+      failed_when: false
+
+    - name: Open Ironic API, HTTP, and sushy on the lab zone
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --permanent
+          - --zone={{ lab_fw_zone }}
+          - --add-port={{ item }}
+      loop:
+        - "{{ ironic_api_port | default(6385) }}/tcp"
+        - "{{ ironic_http_port | default(6180) }}/tcp"
+        - "{{ lab_sushy_port }}/tcp"
+      register: lab_fw_ports
+      changed_when: "'success' in (lab_fw_ports.stdout | default(''))"
+      failed_when: false
+
+    - name: Trust the docker bridge so conductors can reach host sushy
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --permanent
+          - --zone=trusted
+          - --change-interface=docker0
+      register: lab_fw_docker
+      changed_when: lab_fw_docker.rc == 0
+      failed_when: false
+
+    - name: Reload firewalld
+      ansible.builtin.command:
+        argv: [firewall-cmd, --reload]
+      changed_when: true

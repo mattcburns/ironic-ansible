@@ -86,7 +86,14 @@ The repository is organized around reusable Ansible roles and consolidated playb
 │   ├── validate.yml
 │   ├── upgrade.yml
 │   ├── destroy.yml
-│   └── rollback.yml
+│   ├── rollback.yml
+│   ├── lab_up.yml
+│   ├── lab_down.yml
+│   ├── lab_preflight.yml
+│   ├── lab_smoke.yml
+│   ├── lab_vm_provision.yml
+│   ├── lab_vm_destroy.yml
+│   └── lab_stack_down.yml
 └── roles/
     ├── common
     ├── mariadb
@@ -96,8 +103,54 @@ The repository is organized around reusable Ansible roles and consolidated playb
     ├── ironic_http
     ├── ironic_api
     ├── ironic_cli
-    └── ironic_conductor
+    ├── ironic_conductor
+    ├── lab_prereqs
+    ├── lab_firewall
+    ├── lab_libvirt
+    ├── lab_sushy
+    ├── lab_enroll
+    └── lab_vm
 ```
+
+## Local lab (sushy + libvirt)
+
+The lab always runs **inside a Linux VM**. Ironic, sushy-tools, and the fake BMC guests never install onto the operator laptop.
+
+| Operator | Inventory | Who creates the VM |
+|---|---|---|
+| Linux | `inventory.lab.yml` | Ansible (`lab_vm` on L0 libvirt) |
+| macOS / any SSH Linux box | `inventory.lab-remote.yml` | You (Lima or an existing VM) |
+
+```bash
+# Linux: create VM, then deploy into it
+ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass
+ansible-playbook -i inventory.lab.yml playbooks/lab_smoke.yml --ask-become-pass
+
+# macOS: Lima already running
+ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml --ask-become-pass
+```
+
+L0 needs nested KVM so the lab VM can run the sushy guests. Production `inventory.example` never loads `group_vars/lab.yml`.
+
+| What | Lab value |
+|---|---|
+| Lab VM (Linux-created) | `192.168.126.100` (`lab` / key `~/.ssh/ironic_lab_vm`) |
+| Ironic API | `http://<lab-vm>:6385` (`admin` / `labpass`) |
+| Redfish | `http://<lab-vm>:8001/redfish/v1` (`admin` / `password`) |
+| Nested guests | `lab-node-1`, `lab-node-2` on `192.168.125.0/24` *inside* the VM |
+| Ironic HTTP (from guests) | `http://192.168.125.1:6180` |
+
+Tear down:
+
+```bash
+# Destroys the playbook-created VM (and everything inside)
+ansible-playbook -i inventory.lab.yml playbooks/lab_down.yml --ask-become-pass
+
+# Cleans Ironic/sushy/nodes; leaves your Lima/VM running
+ansible-playbook -i inventory.lab-remote.yml playbooks/lab_down.yml --ask-become-pass
+```
+
+`lab_smoke.yml` does not boot IPA. macOS Lima notes: [lima/README.md](lima/README.md).
 
 ## 🚀 Quick Start
 

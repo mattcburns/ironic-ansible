@@ -1,0 +1,99 @@
+---
+- name: Render libvirt network XML
+  ansible.builtin.template:
+    src: lab-network.xml.j2
+    dest: /tmp/ironic-lab-net.xml
+    mode: "0644"
+  tags: [network]
+
+- name: Define libvirt network
+  ansible.builtin.command:
+    argv: [virsh, net-define, /tmp/ironic-lab-net.xml]
+  register: lab_net_define
+  changed_when: "'defined' in ((lab_net_define.stdout ~ lab_net_define.stderr) | lower)"
+  failed_when: >-
+    lab_net_define.rc != 0
+    and 'already exists' not in ((lab_net_define.stdout ~ lab_net_define.stderr) | lower)
+  tags: [network]
+
+- name: Start libvirt network
+  ansible.builtin.command:
+    argv: [virsh, net-start, "{{ lab_network_name }}"]
+  register: lab_net_start
+  changed_when: "'started' in ((lab_net_start.stdout ~ lab_net_start.stderr) | lower)"
+  failed_when: >-
+    lab_net_start.rc != 0
+    and 'already active' not in ((lab_net_start.stdout ~ lab_net_start.stderr) | lower)
+  tags: [network]
+
+- name: Autostart libvirt network
+  ansible.builtin.command:
+    argv: [virsh, net-autostart, "{{ lab_network_name }}"]
+  register: lab_net_autostart
+  changed_when: "'marked as autostarted' in (lab_net_autostart.stdout | default(''))"
+  failed_when: false
+  tags: [network]
+
+- name: Check default storage pool
+  ansible.builtin.command: virsh pool-info default
+  register: lab_pool_info
+  changed_when: false
+  failed_when:
+    - lab_pool_info.rc != 0
+    - "'Storage pool not found' not in (lab_pool_info.stderr | default(''))"
+  tags: [storage]
+
+- name: Define default storage pool
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - pool-define-as
+      - --name
+      - default
+      - --type
+      - dir
+      - --target
+      - "{{ lab_libvirt_images_dir }}"
+  when: lab_pool_info.rc != 0
+  register: lab_pool_define
+  changed_when: "'defined' in (lab_pool_define.stdout | default('') | lower)"
+  tags: [storage]
+
+- name: Start default storage pool
+  ansible.builtin.command:
+    argv: [virsh, pool-start, default]
+  register: lab_pool_start
+  changed_when: lab_pool_start.rc == 0
+  failed_when:
+    - lab_pool_start.rc != 0
+    - "'already active' not in ((lab_pool_start.stdout ~ lab_pool_start.stderr) | lower)"
+  tags: [storage]
+
+- name: Autostart default storage pool
+  ansible.builtin.command:
+    argv: [virsh, pool-autostart, default]
+  register: lab_pool_autostart
+  changed_when: "'marked as autostarted' in (lab_pool_autostart.stdout | default(''))"
+  failed_when: false
+  tags: [storage]
+
+- name: Create virtual BMC nodes
+  ansible.builtin.include_tasks: create_node.yml
+  loop: "{{ lab_bmc_nodes }}"
+  loop_control:
+    loop_var: node
+  tags: [nodes]
+
+- name: Read node libvirt UUIDs for sushy allow-list
+  ansible.builtin.command: virsh domuuid {{ item.name }}
+  loop: "{{ lab_bmc_nodes }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: lab_node_uuids
+  changed_when: false
+  tags: [nodes]
+
+- name: Publish lab_bmc_uuids
+  ansible.builtin.set_fact:
+    lab_bmc_uuids: "{{ lab_node_uuids.results | map(attribute='stdout') | map('trim') | list }}"
+  tags: [nodes]

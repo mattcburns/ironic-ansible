@@ -1,0 +1,14 @@
+services:
+  sushy-tools:
+    image: {{ sushy_tools_image }}
+    container_name: ironic-sushy-tools
+    # Host network: conductor containers reach sushy at the lab gateway, and
+    # sushy can fetch Ironic virtual-media ISOs from the same address.
+    network_mode: host
+    privileged: true
+    volumes:
+      - {{ lab_sushy_dir }}/conf.py:/root/sushy/conf.py:ro
+      - {{ lab_sushy_dir }}/auth.htpasswd:/root/sushy/auth.htpasswd:ro
+      - /var/run/libvirt:/var/run/libvirt
+      - {{ lab_libvirt_images_dir }}:{{ lab_libvirt_images_dir }}
+    restart: unless-stopped

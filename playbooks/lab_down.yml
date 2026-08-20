@@ -1,0 +1,15 @@
+---
+# Two-tier teardown:
+#   inventory.lab.yml:        destroy the playbook-created VM
+#   inventory.lab-remote.yml: clean Ironic/sushy/nodes; leave the VM running
+#
+#   ansible-playbook -i inventory.lab.yml playbooks/lab_down.yml --ask-become-pass
+
+- ansible.builtin.import_playbook: destroy.yml
+  when: "'vm_l0' not in groups"
+
+- ansible.builtin.import_playbook: lab_stack_down.yml
+  when: "'vm_l0' not in groups"
+
+- ansible.builtin.import_playbook: lab_vm_destroy.yml
+  when: "'vm_l0' in groups"

@@ -1,0 +1,17 @@
+<network>
+  <name>{{ lab_network_name }}</name>
+  <bridge name="{{ lab_network_bridge }}" stp="on" delay="0"/>
+  <forward mode="nat">
+    <nat>
+      <port start="1024" end="65535"/>
+    </nat>
+  </forward>
+  <ip address="{{ lab_network_gateway }}" netmask="{{ lab_network_netmask }}">
+    <dhcp>
+      <range start="{{ lab_network_dhcp_start }}" end="{{ lab_network_dhcp_end }}"/>
+{% for node in lab_bmc_nodes %}
+      <host mac="{{ node.mac }}" name="{{ node.name }}" ip="{{ node.ip }}"/>
+{% endfor %}
+    </dhcp>
+  </ip>
+</network>

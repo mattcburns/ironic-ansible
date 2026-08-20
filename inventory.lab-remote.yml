@@ -1,0 +1,18 @@
+---
+# User-supplied Linux lab VM (Lima on macOS, or any SSH-able Ubuntu/Fedora).
+# The playbooks do not create or destroy this VM.
+#
+#   ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml --ask-become-pass
+#
+# Set ansible_host / ansible_user / key to match your VM.
+all:
+  children:
+    lab:
+      hosts:
+        ironic-lab:
+          ansible_host: 127.0.0.1
+          ansible_user: "{{ lookup('env', 'USER') }}"
+          ansible_python_interpreter: /usr/bin/python3
+    ironic:
+      hosts:
+        ironic-lab: {}

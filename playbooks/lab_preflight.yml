@@ -1,0 +1,59 @@
+---
+# Hardware checks only. Package install lives in lab_up.yml.
+#
+#   ansible-playbook -i inventory.lab.yml playbooks/lab_preflight.yml
+
+- name: Preflight checks for the lab host
+  hosts: lab
+  gather_facts: true
+  become: false
+
+  tasks:
+    - name: Check /dev/kvm
+      ansible.builtin.stat:
+        path: /dev/kvm
+      register: lab_kvm
+
+    - name: Require KVM
+      ansible.builtin.assert:
+        that:
+          - lab_kvm.stat.exists
+        fail_msg: "/dev/kvm is missing inside the lab VM. On Linux enable nested KVM; on macOS use Lima with nestedVirtualization."
+
+    - name: CPU virt flags
+      ansible.builtin.command: grep -E -m1 '(vmx|svm)' /proc/cpuinfo
+      register: lab_cpu_virt
+      changed_when: false
+      failed_when: lab_cpu_virt.rc != 0
+
+    - name: Memory
+      ansible.builtin.command: awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo
+      register: lab_mem_mib
+      changed_when: false
+
+    - name: Require 8 GiB RAM
+      ansible.builtin.assert:
+        that:
+          - lab_mem_mib.stdout | int >= 8192
+        fail_msg: "Need >= 8 GiB RAM, found {{ lab_mem_mib.stdout }} MiB."
+
+    - name: Free disk on /
+      ansible.builtin.command: df -m /
+      register: lab_df
+      changed_when: false
+
+    - name: Parse free disk
+      ansible.builtin.set_fact:
+        lab_disk_free_mb: "{{ lab_df.stdout_lines[1].split()[3] | int }}"
+
+    - name: Require 20 GiB free
+      ansible.builtin.assert:
+        that:
+          - lab_disk_free_mb | int >= 20480
+        fail_msg: "Need >= 20 GiB free on /, found {{ lab_disk_free_mb }} MiB."
+
+    - name: Preflight summary
+      ansible.builtin.debug:
+        msg: >-
+          Preflight OK: KVM, {{ lab_mem_mib.stdout }} MiB RAM,
+          {{ lab_disk_free_mb }} MiB free.

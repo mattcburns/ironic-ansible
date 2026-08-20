@@ -1,0 +1,113 @@
+---
+- name: Enable IPv4 forwarding on L0
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+  failed_when: false
+
+- name: Check firewalld
+  ansible.builtin.command: firewall-cmd --state
+  register: lab_vm_firewalld
+  changed_when: false
+  failed_when: false
+
+- name: Check ufw
+  ansible.builtin.command: ufw status
+  register: lab_vm_ufw
+  changed_when: false
+  failed_when: false
+
+- name: Open management bridge in firewalld
+  when:
+    - lab_vm_manage_firewall | bool
+    - lab_vm_firewalld.rc == 0
+    - "'running' in (lab_vm_firewalld.stdout | default('') | lower)"
+  block:
+    - name: List firewalld zones
+      ansible.builtin.command: firewall-cmd --get-zones
+      register: lab_vm_fw_zones
+      changed_when: false
+
+    - name: Choose zone for the management bridge
+      ansible.builtin.set_fact:
+        lab_vm_fw_zone: "{{ 'libvirt' if 'libvirt' in lab_vm_fw_zones.stdout.split() else 'public' }}"
+
+    - name: Attach management bridge to zone
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --permanent
+          - --zone={{ lab_vm_fw_zone }}
+          - --change-interface={{ lab_mgmt_network_bridge }}
+      register: lab_vm_fw_if
+      changed_when: lab_vm_fw_if.rc == 0
+      failed_when: false
+
+    - name: Allow DNS / DHCP / masquerade on the management zone
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --permanent
+          - --zone={{ lab_vm_fw_zone }}
+          - "{{ item }}"
+      loop:
+        - --add-service=dns
+        - --add-service=dhcp
+        - --add-masquerade
+      failed_when: false
+      changed_when: false
+
+    - name: Create firewalld forward policy for the lab net
+      ansible.builtin.command:
+        argv: [firewall-cmd, --permanent, --new-policy, ironic-lab-fwd]
+      register: lab_vm_fw_policy
+      changed_when: lab_vm_fw_policy.rc == 0
+      failed_when: false
+
+    - name: Allow libvirt zone to egress through the policy
+      ansible.builtin.command:
+        argv:
+          - firewall-cmd
+          - --permanent
+          - --policy=ironic-lab-fwd
+          - "{{ item }}"
+      loop:
+        - --set-target=ACCEPT
+        - --add-ingress-zone=libvirt
+        - --add-egress-zone=ANY
+        - --add-masquerade
+      failed_when: false
+      changed_when: false
+
+    - name: Reload firewalld
+      ansible.builtin.command:
+        argv: [firewall-cmd, --reload]
+      changed_when: true
+
+    # Docker/Tailscale leftover iptables often leave FORWARD DROP and never
+    # accept the libvirt NAT net. Insert explicit accepts after firewalld.
+    - name: Accept forwarded traffic from the lab management net
+      ansible.builtin.shell: |
+        set -e
+        iptables -C FORWARD -s {{ lab_mgmt_network }} -j ACCEPT 2>/dev/null \
+          || iptables -I FORWARD 1 -s {{ lab_mgmt_network }} -j ACCEPT
+        iptables -C FORWARD -d {{ lab_mgmt_network }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+          || iptables -I FORWARD 1 -d {{ lab_mgmt_network }} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+        iptables -t nat -C POSTROUTING -s {{ lab_mgmt_network }} ! -d {{ lab_mgmt_network }} -j MASQUERADE 2>/dev/null \
+          || iptables -t nat -I POSTROUTING -s {{ lab_mgmt_network }} ! -d {{ lab_mgmt_network }} -j MASQUERADE
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+- name: Open management bridge in ufw
+  when:
+    - lab_vm_manage_firewall | bool
+    - lab_vm_ufw.rc == 0
+    - "'Status: active' in (lab_vm_ufw.stdout | default(''))"
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ lab_mgmt_network_bridge }}"

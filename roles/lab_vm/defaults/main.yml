@@ -1,0 +1,16 @@
+---
+lab_vm_remove_ssh_key: false
+lab_vm_manage_firewall: true
+lab_libvirt_uri: qemu:///system
+
+lab_vm_base_image: "/var/lib/libvirt/images/{{ lab_vm_name }}-base.img"
+lab_vm_overlay: "/var/lib/libvirt/images/{{ lab_vm_name }}.qcow2"
+lab_vm_seed_iso: "/var/lib/libvirt/images/{{ lab_vm_name }}-seed.iso"
+lab_vm_work_dir: "{{ playbook_dir }}/../.work/{{ lab_vm_name }}"
+
+lab_vm_modular_units:
+  - virtqemud.socket
+  - virtnetworkd.socket
+  - virtstoraged.socket
+  - virtnodedevd.socket
+  - virtsecretd.socket
