@@ -1,0 +1,136 @@
+---
+# Enroll nodes through the Ironic REST API. Shared BMC options such as
+# redfish_verify_ca come from ironic_enroll_*; ironic_nodes supply per-node
+# values (name, optional system id / MAC / credential overrides).
+
+- name: Require ironic_nodes
+  ansible.builtin.assert:
+    that:
+      - ironic_nodes is iterable
+      - ironic_nodes | length > 0
+    fail_msg: >-
+      ironic_nodes is empty. Add node entries in group_vars (see the
+      ironic_enroll_* comments in group_vars/all.yml).
+
+- name: Initialize enroll state
+  ansible.builtin.set_fact:
+    ironic_enroll_effective_nodes: []
+    ironic_enroll_system_ids: {}
+
+- name: Normalize enroll node records
+  ansible.builtin.set_fact:
+    ironic_enroll_effective_nodes: "{{ ironic_enroll_effective_nodes | default([]) + [enroll_effective] }}"
+  vars:
+    enroll_effective:
+      name: "{{ item.name }}"
+      driver: "{{ item.driver | default(ironic_enroll_driver) }}"
+      boot_interface: "{{ item.boot_interface | default(ironic_enroll_boot_interface) }}"
+      deploy_interface: "{{ item.deploy_interface | default(ironic_enroll_deploy_interface) }}"
+      inspect_interface: "{{ item.inspect_interface | default(ironic_enroll_inspect_interface) }}"
+      network_interface: "{{ item.network_interface | default(ironic_enroll_network_interface) }}"
+      management_interface: "{{ item.management_interface | default(ironic_enroll_management_interface) }}"
+      power_interface: "{{ item.power_interface | default(ironic_enroll_power_interface) }}"
+      redfish_address: "{{ item.redfish_address | default(ironic_enroll_redfish_address, true) }}"
+      redfish_username: "{{ item.redfish_username | default(ironic_enroll_redfish_username, true) }}"
+      redfish_password: "{{ item.redfish_password | default(ironic_enroll_redfish_password, true) }}"
+      redfish_verify_ca: "{{ item.redfish_verify_ca | default(ironic_enroll_redfish_verify_ca) | bool }}"
+      redfish_system_id: "{{ item.redfish_system_id | default('') }}"
+      mac: "{{ item.mac | default(item.address | default('')) }}"
+  loop: "{{ ironic_nodes }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+  no_log: true
+
+- name: Require a name and BMC address on every node
+  ansible.builtin.assert:
+    that:
+      - item.name | default('') | length > 0
+      - item.redfish_address | default('') | length > 0
+    fail_msg: >-
+      Node {{ item.name | default('(missing name)') }} needs redfish_address
+      (set ironic_enroll_redfish_address or a per-node redfish_address).
+  loop: "{{ ironic_enroll_effective_nodes }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Wait for Ironic API
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: GET
+    status_code: 200
+  register: ironic_enroll_api_ready
+  until: ironic_enroll_api_ready.status == 200
+  retries: 30
+  delay: 4
+  no_log: true
+
+- name: List existing Ironic nodes
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes?detail=true"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: GET
+    status_code: 200
+  register: ironic_enroll_existing
+  no_log: true
+
+- name: Existing Ironic node names
+  ansible.builtin.set_fact:
+    ironic_enroll_existing_names: "{{ ironic_enroll_existing.json.nodes | map(attribute='name') | select('string') | list }}"
+
+- name: Resolve Redfish system IDs
+  ansible.builtin.include_tasks: resolve_system.yml
+  loop: "{{ ironic_enroll_effective_nodes }}"
+  loop_control:
+    loop_var: enroll_node
+    label: "{{ enroll_node.name }}"
+
+- name: Ensure each Ironic node
+  ansible.builtin.include_tasks: ensure_node.yml
+  loop: "{{ ironic_enroll_effective_nodes }}"
+  loop_control:
+    loop_var: enroll_node
+    label: "{{ enroll_node.name }}"
+
+- name: List enrolled Ironic nodes
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes?detail=true"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: GET
+    status_code: 200
+  register: ironic_enroll_final
+  no_log: true
+
+- name: Build enroll summary
+  ansible.builtin.set_fact:
+    ironic_enroll_summary: "{{ ironic_enroll_summary | default([]) + [enroll_summary_item] }}"
+  vars:
+    enroll_summary_item:
+      name: "{{ item.name }}"
+      uuid: "{{ item.uuid }}"
+      provision_state: "{{ item.provision_state }}"
+      verify_ca: "{{ item.driver_info.redfish_verify_ca | default('unset') }}"
+  loop: "{{ ironic_enroll_final.json.nodes }}"
+  when: item.name in (ironic_enroll_effective_nodes | map(attribute='name') | list)
+  no_log: true
+
+- name: Show enrolled nodes
+  ansible.builtin.debug:
+    msg: |
+      Enrolled via Ironic API ({{ ironic_enroll_driver }}, verify_ca={{ ironic_enroll_redfish_verify_ca }}):
+      {% for node in ironic_enroll_summary | default([]) %}
+      - {{ node.name }}  {{ node.uuid }}  {{ node.provision_state }}  verify_ca={{ node.verify_ca }}
+      {% endfor %}

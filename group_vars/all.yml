@@ -108,6 +108,12 @@ ironic_api_bind_addr: "0.0.0.0"
 # On multi-homed hosts, override this to the IP reachable from the BMC/provisioning network.
 ironic_api_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn) }}"
 
+# REST client used by playbooks/enroll.yml (and other API-only playbooks).
+# Pin a current microversion; 1.1 rejects driver_info and ?detail=.
+ironic_api_version: "1.91"
+# Enroll talks to the API from the Ironic host.
+ironic_api_base_url: "http://127.0.0.1:{{ ironic_api_port }}"
+
 # -----------------------------------------------------------------------------
 # Ironic HTTP Server Configuration
 # -----------------------------------------------------------------------------
@@ -184,6 +190,43 @@ ironic_enabled_power_interfaces: "redfish"
 
 # RAID
 ironic_enabled_raid_interfaces: "agent,no-raid"
+
+# -----------------------------------------------------------------------------
+# Node enrollment (playbooks/enroll.yml)
+# -----------------------------------------------------------------------------
+# Shared BMC / interface defaults. Per-node ironic_nodes entries override
+# these keys when set. playbooks/enroll.yml talks to the Ironic REST API only.
+
+ironic_enroll_driver: redfish
+ironic_enroll_boot_interface: "{{ ironic_default_boot_interface }}"
+ironic_enroll_deploy_interface: "{{ ironic_default_deploy_interface }}"
+ironic_enroll_inspect_interface: "{{ ironic_default_inspect_interface }}"
+ironic_enroll_network_interface: "{{ ironic_default_network_interface }}"
+ironic_enroll_management_interface: redfish
+ironic_enroll_power_interface: redfish
+
+# Common BMC settings applied to every enrolled node unless overridden.
+ironic_enroll_redfish_verify_ca: false
+ironic_enroll_redfish_address: ""
+ironic_enroll_redfish_username: ""
+ironic_enroll_redfish_password: ""
+
+# After create/update, move nodes from enroll -> manageable.
+ironic_enroll_manage: true
+
+# Node list. Each entry needs `name`. BMC address/user/password inherit the
+# ironic_enroll_redfish_* values above unless set on the node. Omit
+# redfish_system_id to look it up from Redfish by System.Name == name.
+# Optional `mac` creates an Ironic port.
+#
+# ironic_nodes:
+#   - name: node-1
+#     redfish_address: https://bmc-1.example:443
+#     redfish_username: admin
+#     redfish_password: secret
+#     redfish_system_id: /redfish/v1/Systems/1
+#     mac: "52:54:00:00:00:01"
+ironic_nodes: []
 
 # -----------------------------------------------------------------------------
 # Inspection Configuration

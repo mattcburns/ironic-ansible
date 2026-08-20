@@ -1,0 +1,20 @@
+[
+  {"op": "replace", "path": "/driver", "value": {{ enroll_payload.driver | to_json }}},
+  {"op": "replace", "path": "/boot_interface", "value": {{ enroll_payload.boot_interface | to_json }}},
+  {"op": "replace", "path": "/deploy_interface", "value": {{ enroll_payload.deploy_interface | to_json }}},
+  {"op": "replace", "path": "/inspect_interface", "value": {{ enroll_payload.inspect_interface | to_json }}},
+  {"op": "replace", "path": "/network_interface", "value": {{ enroll_payload.network_interface | to_json }}},
+  {"op": "replace", "path": "/management_interface", "value": {{ enroll_payload.management_interface | to_json }}},
+  {"op": "replace", "path": "/power_interface", "value": {{ enroll_payload.power_interface | to_json }}},
+  {
+    "op": "replace",
+    "path": "/driver_info",
+    "value": {
+      "redfish_address": {{ enroll_payload.redfish_address | to_json }},
+      "redfish_system_id": {{ enroll_payload.redfish_system_id | to_json }},
+      "redfish_username": {{ enroll_payload.redfish_username | to_json }},
+      "redfish_password": {{ enroll_payload.redfish_password | to_json }},
+      "redfish_verify_ca": {{ enroll_payload.redfish_verify_ca | bool | to_json }}
+    }
+  }
+]

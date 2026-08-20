@@ -1,0 +1,15 @@
+---
+# Enroll nodes in Ironic via the REST API (no ironic-cli).
+#
+# Shared BMC / interface defaults live in group_vars/all.yml
+# (ironic_enroll_*). Per-node overrides go on ironic_nodes.
+#
+#   ansible-playbook -i inventory playbooks/enroll.yml
+
+- name: Enroll Ironic nodes
+  hosts: ironic
+  gather_facts: false
+  become: false
+  roles:
+    - role: ironic_enroll
+      tags: [enroll]

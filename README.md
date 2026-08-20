@@ -83,6 +83,7 @@ The repository is organized around reusable Ansible roles and consolidated playb
 ├── requirements.yml
 ├── playbooks/
 │   ├── deploy.yml
+│   ├── enroll.yml
 │   ├── validate.yml
 │   ├── upgrade.yml
 │   ├── destroy.yml
@@ -104,11 +105,11 @@ The repository is organized around reusable Ansible roles and consolidated playb
     ├── ironic_api
     ├── ironic_cli
     ├── ironic_conductor
+    ├── ironic_enroll
     ├── lab_prereqs
     ├── lab_firewall
     ├── lab_libvirt
     ├── lab_sushy
-    ├── lab_enroll
     └── lab_vm
 ```
 
@@ -273,8 +274,28 @@ openstack --os-cloud ironic baremetal node list
 
 ### Enrolling and Provisioning a Node
 
-1. Enroll the node by creating it in the API: `ironic-cli node create --driver redfish --driver-info redfish_address=<redfish https endpoint> --driver-info redfish_username=<bmc user> --driver-info redfish_password=<bmc password> --driver-info redfish_verify_ca=False`
-1. Make the node manageable: `ironic-cli node manage <node id>`
+Enrollment is an Ansible playbook that calls the Ironic REST API (not `ironic-cli`).
+Put shared BMC settings in `group_vars/all.yml` (`ironic_enroll_redfish_verify_ca`,
+optional shared address/user/password) and list nodes as `ironic_nodes`.
+
+```yaml
+ironic_enroll_redfish_verify_ca: false
+ironic_enroll_redfish_username: admin
+ironic_nodes:
+  - name: node-1
+    redfish_address: https://bmc-1.example:443
+    redfish_password: secret
+    redfish_system_id: /redfish/v1/Systems/1
+```
+
+```bash
+ansible-playbook -i inventory playbooks/enroll.yml
+```
+
+The playbook creates missing nodes, applies the shared driver/BMC settings, and
+moves them to `manageable`. Omit `redfish_system_id` to look it up from Redfish
+by `System.Name`. Then continue provisioning:
+
 1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data network_data.json <node id>`
 1. Make the node available for provisioning and trigger a cleaning: `ironic-cli node provide <node id>`
 1. Configure the OS image to provision for direct deploy (Ubuntu example): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img.sha256)`

@@ -37,23 +37,15 @@ curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ i
 ```
 ## Enroll + provision workflow
 ```bash
-# 1) Create node
-{{ ironic_cli_wrapper_path }} node create \
-  --driver redfish \
-  --driver-info redfish_address=<redfish https endpoint> \
-  --driver-info redfish_username=<bmc user> \
-  --driver-info redfish_password=<bmc password> \
-  --driver-info redfish_verify_ca=False
+# 1) Enroll nodes via the Ironic API (shared BMC defaults in group_vars)
+#    ansible-playbook -i inventory playbooks/enroll.yml
 
-# 2) Move to manageable
-{{ ironic_cli_wrapper_path }} node manage <node id>
-
-# 3) Attach cleaning network data
+# 2) Attach cleaning network data
 {{ ironic_cli_wrapper_path }} node set --network-data network_data.json <node id>
 
-# 4) Move to available (runs cleaning)
+# 3) Move to available (runs cleaning)
 {{ ironic_cli_wrapper_path }} node provide <node id>
-# 5) Set deploy image (direct deploy example)
+# 4) Set deploy image (direct deploy example)
 {% if ubuntu_lts_image_enabled | bool %}
 # Ubuntu whole-disk image
 {{ ironic_cli_wrapper_path }} node set <node id> \
@@ -71,7 +63,7 @@ curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ i
   --instance-info image_os_hash_value=<os image sha256sum>
 {% endif %}
 
-# 6) Deploy
+# 5) Deploy
 {{ ironic_cli_wrapper_path }} node deploy <node id> --config-drive <config-drive.json, optional>
 ```
 

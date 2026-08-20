@@ -30,6 +30,13 @@ lab_bmc_username: admin
 lab_bmc_password: password
 lab_service_host: 127.0.0.1
 
+# Shared BMC for every lab guest. Per-node names/MACs stay on lab_bmc_nodes.
+ironic_enroll_redfish_address: "http://{{ lab_network_gateway }}:{{ lab_sushy_port }}"
+ironic_enroll_redfish_username: "{{ lab_bmc_username }}"
+ironic_enroll_redfish_password: "{{ lab_bmc_password }}"
+ironic_enroll_redfish_verify_ca: false
+ironic_nodes: "{{ lab_bmc_nodes }}"
+
 # IPA and virtual-media URLs must be reachable from guests and from sushy.
 ironic_api_host: "{{ lab_network_gateway }}"
 ironic_automated_clean: false
