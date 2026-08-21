@@ -1,5 +1,8 @@
 <domain type="kvm">
   <name>{{ node.name }}</name>
+{% if lab_node_info.rc == 0 %}
+  <uuid>{{ lab_node_existing_uuid.stdout | trim }}</uuid>
+{% endif %}
   <memory unit="MiB">{{ lab_node_memory_mib }}</memory>
   <vcpu placement="static">{{ lab_node_vcpus }}</vcpu>
 {% if lab_node_arch == 'aarch64' %}
@@ -73,5 +76,8 @@
       <target type="serial" port="0"/>
     </console>
     <memballoon model="virtio"/>
+    <rng model="virtio">
+      <backend model="random">/dev/urandom</backend>
+    </rng>
   </devices>
 </domain>

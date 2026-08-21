@@ -55,6 +55,9 @@
     body_format: json
     body: "{{ lookup('template', role_path ~ '/templates/node-patch.json.j2') | from_json }}"
   register: enroll_patch
+  until: enroll_patch.status | default(0) in [200, 202]
+  retries: 5
+  delay: 3
   when:
     - enroll_node.name in ironic_enroll_existing_names
     - enroll_patch_needed | default(false) | bool
@@ -90,6 +93,9 @@
       node_uuid: "{{ enroll_node_info.json.uuid }}"
       address: "{{ enroll_payload.mac | lower }}"
   register: enroll_port_create
+  until: enroll_port_create.status | default(0) in [201, 409]
+  retries: 5
+  delay: 3
   when: enroll_payload.mac | default('') | length > 0
   failed_when: enroll_port_create.status | default(0) not in [201, 409]
   changed_when: enroll_port_create.status | default(0) == 201
@@ -107,6 +113,9 @@
     body_format: json
     body: "{{ lookup('template', role_path ~ '/templates/network-data-patch.json.j2') | from_json }}"
   register: enroll_network_patch
+  until: enroll_network_patch.status | default(0) in [200, 202]
+  retries: 5
+  delay: 3
   when:
     - enroll_payload.ip | default('') | length > 0
     - enroll_node_info.json.provision_state in ["enroll", "verifying", "manageable"]
@@ -131,6 +140,9 @@
     body:
       target: manage
   register: enroll_manage
+  until: enroll_manage.status | default(0) in [202, 409]
+  retries: 5
+  delay: 3
   when:
     - enroll_payload.provision_state in ["manageable", "available"]
     - enroll_node_info.json.provision_state in ["enroll", "verifying"]
@@ -184,6 +196,9 @@
     body:
       target: provide
   register: enroll_provide
+  until: enroll_provide.status | default(0) in [202, 409]
+  retries: 5
+  delay: 3
   when:
     - enroll_payload.provision_state == "available"
     - (enroll_node_after_manage.json.provision_state | default(enroll_node_info.json.provision_state)) in ["manageable"]

@@ -5,6 +5,12 @@
   failed_when: false
   changed_when: false
 
+- name: Read existing node UUID
+  ansible.builtin.command: virsh domuuid {{ node.name }}
+  register: lab_node_existing_uuid
+  changed_when: false
+  when: lab_node_info.rc == 0
+
 - name: Check node disk
   ansible.builtin.stat:
     path: "{{ lab_libvirt_images_dir }}/{{ node.name }}.qcow2"

@@ -311,6 +311,10 @@ ironic_ipa_kernel_append_params: "nofb vga=normal"
 # Example: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@example"
 # Note: dynamic-login supports one key via sshkey="...".
 ironic_ipa_ssh_public_key: ""
+# Retries for a single IPA agent command after a connection failure
+# (e.g. agent not listening yet). Matches ironic's own upstream default;
+# slower boot environments (nested virt) need a much higher value.
+ironic_agent_max_command_attempts: 3
 
 ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
 os_image_downloader_script_path: "/opt/ironic/os-image-downloader.sh"

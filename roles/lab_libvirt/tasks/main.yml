@@ -41,6 +41,34 @@
     and 'already active' not in ((lab_net_start.stdout ~ lab_net_start.stderr) | lower)
   tags: [network]
 
+- name: Allow forwarded traffic to reach the lab network
+  ansible.builtin.command:
+    argv: [iptables, -C, FORWARD, -d, "{{ lab_network }}", -j, ACCEPT]
+  register: lab_fw_forward_in_check
+  changed_when: false
+  failed_when: false
+  tags: [network]
+
+- name: Insert lab network forward-in accept ahead of libvirt's isolation rules
+  ansible.builtin.command:
+    argv: [iptables, -I, FORWARD, "1", -d, "{{ lab_network }}", -j, ACCEPT]
+  when: lab_fw_forward_in_check.rc != 0
+  tags: [network]
+
+- name: Check for existing lab network forward-out accept
+  ansible.builtin.command:
+    argv: [iptables, -C, FORWARD, -s, "{{ lab_network }}", -j, ACCEPT]
+  register: lab_fw_forward_out_check
+  changed_when: false
+  failed_when: false
+  tags: [network]
+
+- name: Insert lab network forward-out accept ahead of libvirt's isolation rules
+  ansible.builtin.command:
+    argv: [iptables, -I, FORWARD, "1", -s, "{{ lab_network }}", -j, ACCEPT]
+  when: lab_fw_forward_out_check.rc != 0
+  tags: [network]
+
 - name: Autostart libvirt network
   ansible.builtin.command:
     argv: [virsh, net-autostart, "{{ lab_network_name }}"]

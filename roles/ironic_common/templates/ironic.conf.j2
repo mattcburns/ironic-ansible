@@ -79,7 +79,11 @@ extra_kernel_params =
 
 [redfish]
 kernel_append_params = {{ ironic_ipa_kernel_append_params }}{% if ironic_ipa_ssh_public_key | default('') | trim %} sshkey="{{ ironic_ipa_ssh_public_key | trim }}"{% endif %}
+
 use_swift = false
+
+[agent]
+max_command_attempts = {{ ironic_agent_max_command_attempts }}
 
 [service_catalog]
 {% if keystone_enabled %}
