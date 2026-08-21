@@ -2,8 +2,16 @@
   <name>{{ node.name }}</name>
   <memory unit="MiB">{{ lab_node_memory_mib }}</memory>
   <vcpu placement="static">{{ lab_node_vcpus }}</vcpu>
+{% if lab_node_arch == 'aarch64' %}
+  <os firmware="efi">
+    <type arch="aarch64" machine="{{ lab_node_machine }}">hvm</type>
+    <loader readonly="yes" type="pflash">{{ lab_node_firmware_code }}</loader>
+    <nvram template="{{ lab_node_firmware_vars }}"/>
+    <boot dev="hd"/>
+  </os>
+{% else %}
   <os>
-    <type arch="x86_64" machine="q35">hvm</type>
+    <type arch="x86_64" machine="{{ lab_node_machine }}">hvm</type>
     <boot dev="hd"/>
   </os>
   <features>
@@ -11,22 +19,34 @@
     <apic/>
     <pae/>
   </features>
+{% endif %}
   <cpu mode="host-passthrough" check="none"/>
-  <clock offset="utc">
-    <timer name="rtc" tickpolicy="catchup"/>
-    <timer name="pit" tickpolicy="delay"/>
-    <timer name="hpet" present="no"/>
-  </clock>
+  <clock offset="utc"/>
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>restart</on_reboot>
   <on_crash>destroy</on_crash>
   <devices>
-    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <emulator>{{ lab_node_emulator }}</emulator>
     <disk type="file" device="disk">
       <driver name="qemu" type="qcow2"/>
       <source file="{{ lab_libvirt_images_dir }}/{{ node.name }}.qcow2"/>
       <target dev="vda" bus="virtio"/>
     </disk>
+{% if lab_node_arch == 'aarch64' %}
+    <controller type="scsi" index="0" model="virtio-scsi"/>
+    <disk type="file" device="cdrom">
+      <driver name="qemu" type="raw"/>
+      <target dev="sda" bus="scsi"/>
+      <readonly/>
+    </disk>
+{% if lab_node_dual_cd | default(false) | bool %}
+    <disk type="file" device="cdrom">
+      <driver name="qemu" type="raw"/>
+      <target dev="sdb" bus="scsi"/>
+      <readonly/>
+    </disk>
+{% endif %}
+{% else %}
     <disk type="file" device="cdrom">
       <driver name="qemu" type="raw"/>
       <target dev="sda" bus="sata"/>
@@ -40,6 +60,7 @@
     </disk>
 {% endif %}
     <controller type="sata" index="0"/>
+{% endif %}
     <interface type="network">
       <mac address="{{ node.mac }}"/>
       <source network="{{ lab_network_name }}"/>

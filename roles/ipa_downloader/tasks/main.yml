@@ -72,7 +72,7 @@
 - name: Wait for IPA images to be downloaded
   ansible.builtin.wait_for:
     path: "{{ ipa_images_directory }}/{{ item }}"
-    timeout: 300
+    timeout: 900
   loop:
     - "{{ ipa_kernel_filename }}"
     - "{{ ipa_ramdisk_filename }}"

@@ -49,7 +49,9 @@
       ansible.builtin.fail:
         msg: >-
           /dev/kvm is missing inside the lab VM. On Linux L0, enable nested
-          virtualization. On macOS, Lima must have nestedVirtualization: true.
+          virtualization. On macOS, use lima/lab.yaml (vmType: vz,
+          nestedVirtualization: true) on macOS 15+ with Apple Silicon M3 or
+          later (M5 Pro included) or a recent Intel Mac. See lima/README.md.
       when: not lab_kvm.stat.exists
 
     - name: Read total memory (MiB)

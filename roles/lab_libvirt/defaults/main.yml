@@ -3,3 +3,11 @@
 # fills an existing tray. Eject removes the device from the live domain XML;
 # re-run lab_up --tags libvirt after a failed media cycle if smoke complains.
 lab_node_dual_cd: false
+
+# L2 guests must match the lab VM architecture so nested KVM works.
+# Apple Silicon Lima is aarch64; Linux L0 libvirt VMs are typically x86_64.
+lab_node_arch: "{{ 'aarch64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+lab_node_machine: "{{ 'virt' if lab_node_arch == 'aarch64' else 'q35' }}"
+lab_node_emulator: "{{ '/usr/bin/qemu-system-aarch64' if lab_node_arch == 'aarch64' else '/usr/bin/qemu-system-x86_64' }}"
+lab_node_firmware_code: /usr/share/AAVMF/AAVMF_CODE.fd
+lab_node_firmware_vars: /usr/share/AAVMF/AAVMF_VARS.fd

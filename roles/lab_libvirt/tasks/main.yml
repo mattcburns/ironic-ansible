@@ -1,4 +1,19 @@
 ---
+- name: Require AAVMF firmware for aarch64 guests
+  ansible.builtin.stat:
+    path: "{{ lab_node_firmware_code }}"
+  register: lab_aavmf
+  when: lab_node_arch == "aarch64"
+
+- name: Fail if AAVMF firmware is missing
+  ansible.builtin.fail:
+    msg: >-
+      aarch64 lab guests need {{ lab_node_firmware_code }}
+      (Debian: qemu-efi-aarch64, Fedora: edk2-aarch64).
+  when:
+    - lab_node_arch == "aarch64"
+    - not (lab_aavmf.stat.exists | default(false))
+
 - name: Render libvirt network XML
   ansible.builtin.template:
     src: lab-network.xml.j2
