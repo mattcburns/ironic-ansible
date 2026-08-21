@@ -12,6 +12,7 @@ Darwin is operator-only. Ironic, sushy-tools, and the fake BMC guests run
 | Lima 1.0+ (`brew install lima`) | Creates the Linux VM with `vmType: vz` |
 | Ansible 2.14+ on the Mac (`brew install ansible`) | Runs `lab_up` from the Mac |
 | 16 GiB free RAM for the VM, ~100 GiB disk | Two nested guests plus Ironic containers |
+| OpenStack CLI, optional (`brew install openstackclient`) | `openstack baremetal ...` against the generated `clouds.yaml` (see main README) |
 
 M1/M2: Lima will start, but nested KVM is not available. `lab_up` will fail the `/dev/kvm` check. Use a Linux box or an M3+ Mac.
 

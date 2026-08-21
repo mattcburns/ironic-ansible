@@ -149,7 +149,8 @@ On Apple Silicon, L2 guests are aarch64 so nested KVM works; IPA/ESP come from t
 `lab_up.yml` also fetches the lab's `clouds.yaml` into a gitignored
 `clouds.yaml` at the repo root on whatever machine ran `ansible-playbook`
 (your Mac, in the Lima flow) -- it never touches your real
-`~/.config/openstack/clouds.yaml`. Point the OpenStack CLI at it with an env
+`~/.config/openstack/clouds.yaml`. Install the OpenStack CLI (`brew install
+openstackclient` on macOS) and point it at the generated file with an env
 var:
 
 ```bash
