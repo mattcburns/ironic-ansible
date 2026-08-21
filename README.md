@@ -146,10 +146,16 @@ On Apple Silicon, L2 guests are aarch64 so nested KVM works; IPA/ESP come from t
 | Nested guests | `lab-node-1`, `lab-node-2` on `192.168.125.0/24` *inside* the VM |
 | Ironic HTTP (from guests) | `http://192.168.125.1:6180` |
 
-`lab_up.yml` also merges an `ironic` cloud entry into `~/.config/openstack/clouds.yaml`
-on whatever machine ran `ansible-playbook` (your Mac, in the Lima flow), so
-`openstack --os-cloud ironic baremetal node list` works right after the run
-without any manual setup. Set `lab_export_clouds_yaml: false` to skip it.
+`lab_up.yml` also fetches the lab's `clouds.yaml` into a repo-local, gitignored
+`.lab/clouds.yaml` on whatever machine ran `ansible-playbook` (your Mac, in the
+Lima flow) -- it never touches your real `~/.config/openstack/clouds.yaml`.
+Point the OpenStack CLI at it with an env var:
+
+```bash
+OS_CLIENT_CONFIG_FILE=.lab/clouds.yaml openstack --os-cloud ironic baremetal node list
+```
+
+Set `lab_export_clouds_yaml: false` to skip the fetch.
 
 Tear down:
 
