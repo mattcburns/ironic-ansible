@@ -59,9 +59,9 @@ rabbitmq_password: labpass
 
 flatcar_image_enabled: false
 
-# lab_up fetches the lab's clouds.yaml into a repo-local, gitignored file on
-# whatever machine runs ansible-playbook (the Mac, in the Lima flow) -- never
-# your real ~/.config/openstack/clouds.yaml. Point OS_CLIENT_CONFIG_FILE at
-# it to use --os-cloud. Set false to skip the fetch.
+# lab_up fetches the lab's clouds.yaml into a gitignored file at the repo
+# root on whatever machine runs ansible-playbook (the Mac, in the Lima flow)
+# -- never your real ~/.config/openstack/clouds.yaml. Point
+# OS_CLIENT_CONFIG_FILE at it to use --os-cloud. Set false to skip the fetch.
 lab_export_clouds_yaml: true
-lab_local_clouds_yaml_path: "{{ playbook_dir }}/../.lab/clouds.yaml"
+lab_local_clouds_yaml_path: "{{ playbook_dir }}/../clouds.yaml"

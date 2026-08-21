@@ -102,15 +102,6 @@
   hosts: lab
   gather_facts: false
   tasks:
-    - name: Ensure local .lab directory exists
-      ansible.builtin.file:
-        path: "{{ lab_local_clouds_yaml_path | dirname }}"
-        state: directory
-        mode: "0700"
-      delegate_to: localhost
-      become: false
-      when: (ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool)
-
     - name: Fetch lab clouds.yaml into the repo
       ansible.builtin.fetch:
         src: "{{ ironic_clouds_yaml_path }}"
@@ -119,6 +110,14 @@
         mode: "0600"
       become: true
       no_log: true
+      when: (ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool)
+
+    - name: Restrict local cloud profile permissions
+      ansible.builtin.file:
+        path: "{{ lab_local_clouds_yaml_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
       when: (ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool)
 
     - name: Show local cloud profile path

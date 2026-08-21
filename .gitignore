@@ -51,4 +51,4 @@ temp/
 .work/
 
 # Generated lab OpenStack cloud profile (contains lab credentials)
-/.lab/
+/clouds.yaml
