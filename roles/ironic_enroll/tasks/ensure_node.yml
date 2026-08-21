@@ -26,6 +26,9 @@
     body_format: json
     body: "{{ lookup('template', role_path ~ '/templates/node-create.json.j2') | from_json }}"
   register: enroll_create
+  until: enroll_create.status | default(0) in [201, 409]
+  retries: 5
+  delay: 3
   when: enroll_node.name not in ironic_enroll_existing_names
   failed_when: enroll_create.status | default(0) not in [201, 409]
   changed_when: enroll_create.status | default(0) == 201
