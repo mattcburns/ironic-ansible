@@ -97,3 +97,51 @@
 - ansible.builtin.import_playbook: deploy.yml
 
 - ansible.builtin.import_playbook: enroll.yml
+
+- name: Export the lab OpenStack cloud profile to the control host
+  hosts: lab
+  gather_facts: false
+  tasks:
+    - name: Read remote clouds.yaml
+      ansible.builtin.slurp:
+        src: "{{ ironic_clouds_yaml_path }}"
+      become: true
+      register: lab_remote_clouds_yaml_raw
+      no_log: true
+      when: (ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool)
+
+    - name: Merge lab cloud profile into the control host's clouds.yaml
+      when: (ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool)
+      delegate_to: localhost
+      become: false
+      no_log: true
+      block:
+        - name: Ensure local OpenStack config directory exists
+          ansible.builtin.file:
+            path: "{{ lab_local_clouds_yaml_path | dirname }}"
+            state: directory
+            mode: "0700"
+
+        - name: Check for an existing local clouds.yaml
+          ansible.builtin.stat:
+            path: "{{ lab_local_clouds_yaml_path }}"
+          register: lab_local_clouds_yaml_stat
+
+        - name: Load existing local clouds.yaml
+          ansible.builtin.set_fact:
+            lab_local_clouds_yaml: "{{ (lookup('file', lab_local_clouds_yaml_path) | from_yaml) if lab_local_clouds_yaml_stat.stat.exists else {'clouds': {}} }}"
+
+        - name: Write merged local clouds.yaml
+          ansible.builtin.copy:
+            content: >-
+              {{ (lab_local_clouds_yaml | combine({'clouds': {ironic_cloud_name: (lab_remote_clouds_yaml_raw.content | b64decode | from_yaml).clouds[ironic_cloud_name]}}, recursive=true)) | to_nice_yaml }}
+            dest: "{{ lab_local_clouds_yaml_path }}"
+            mode: "0600"
+
+    - name: Show local cloud profile path
+      ansible.builtin.debug:
+        msg: >-
+          {{ ('Wrote lab cloud profile to ' ~ lab_local_clouds_yaml_path ~
+              ' -- try: openstack --os-cloud ' ~ ironic_cloud_name ~ ' baremetal node list')
+             if ((ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool))
+             else 'Skipped local clouds.yaml export (ironic_clouds_yaml_enabled or lab_export_clouds_yaml is false)' }}
