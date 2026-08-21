@@ -18,5 +18,13 @@ ironic_enroll_redfish_address: ""
 ironic_enroll_redfish_username: ""
 ironic_enroll_redfish_password: ""
 
-ironic_enroll_manage: true
+ironic_enroll_provision_state: manageable
+ironic_enroll_wait_retries: 60
+ironic_enroll_wait_delay: 10
+
+ironic_enroll_network_nic: eth0
+ironic_enroll_network_netmask: "255.255.255.0"
+ironic_enroll_network_gateway: ""
+ironic_enroll_network_id: network0
+
 ironic_nodes: []

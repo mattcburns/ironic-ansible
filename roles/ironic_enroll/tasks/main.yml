@@ -1,7 +1,7 @@
 ---
-# Enroll nodes through the Ironic REST API. Shared BMC options such as
-# redfish_verify_ca come from ironic_enroll_*; ironic_nodes supply per-node
-# values (name, optional system id / MAC / credential overrides).
+# Enroll nodes through the Ironic REST API. Shared BMC, static IP, and
+# target provision_state come from ironic_enroll_* (documented in
+# group_vars/all.yml). ironic_nodes supply per-node overrides.
 
 - name: Require ironic_nodes
   ansible.builtin.assert:
@@ -36,6 +36,12 @@
       redfish_verify_ca: "{{ item.redfish_verify_ca | default(ironic_enroll_redfish_verify_ca) | bool }}"
       redfish_system_id: "{{ item.redfish_system_id | default('') }}"
       mac: "{{ item.mac | default(item.address | default('')) }}"
+      ip: "{{ item.ip | default('') }}"
+      nic: "{{ item.nic | default(item.link | default(ironic_enroll_network_nic, true)) }}"
+      netmask: "{{ item.netmask | default(ironic_enroll_network_netmask, true) }}"
+      gateway: "{{ item.gateway | default(ironic_enroll_network_gateway, true) }}"
+      network_id: "{{ item.network_id | default(ironic_enroll_network_id, true) }}"
+      provision_state: "{{ item.provision_state | default(ironic_enroll_provision_state) }}"
   loop: "{{ ironic_nodes }}"
   loop_control:
     label: "{{ item.name | default('unnamed') }}"
@@ -52,6 +58,18 @@
   loop: "{{ ironic_enroll_effective_nodes }}"
   loop_control:
     label: "{{ item.name }}"
+  no_log: true
+
+- name: Require a supported target provision state
+  ansible.builtin.assert:
+    that:
+      - item.provision_state in ["enroll", "manageable", "available"]
+    fail_msg: >-
+      Node {{ item.name }} has provision_state={{ item.provision_state }}.
+      Use enroll, manageable, or available (see group_vars/all.yml).
+  loop: "{{ ironic_enroll_effective_nodes }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.provision_state }}"
   no_log: true
 
 - name: Wait for Ironic API
@@ -122,6 +140,7 @@
       name: "{{ item.name }}"
       uuid: "{{ item.uuid }}"
       provision_state: "{{ item.provision_state }}"
+      ip: "{{ (item.network_data.networks | default([]) | first | default({})).ip_address | default('') }}"
       verify_ca: "{{ item.driver_info.redfish_verify_ca | default('unset') }}"
   loop: "{{ ironic_enroll_final.json.nodes }}"
   when: item.name in (ironic_enroll_effective_nodes | map(attribute='name') | list)
@@ -132,5 +151,5 @@
     msg: |
       Enrolled via Ironic API ({{ ironic_enroll_driver }}, verify_ca={{ ironic_enroll_redfish_verify_ca }}):
       {% for node in ironic_enroll_summary | default([]) %}
-      - {{ node.name }}  {{ node.uuid }}  {{ node.provision_state }}  verify_ca={{ node.verify_ca }}
+      - {{ node.name }}  {{ node.uuid }}  {{ node.provision_state }}  ip={{ node.ip }}  verify_ca={{ node.verify_ca }}
       {% endfor %}

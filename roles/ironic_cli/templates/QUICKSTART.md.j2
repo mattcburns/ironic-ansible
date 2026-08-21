@@ -36,16 +36,18 @@ curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ i
 {{ ironic_cli_wrapper_path }} openstack --os-cloud {{ ironic_cloud_name }} baremetal node list
 ```
 ## Enroll + provision workflow
+Enrollment is `playbooks/enroll.yml` (Ironic REST API, not this CLI). Shared
+BMC / static-IP / target-state knobs are `ironic_enroll_*` in group_vars.
+Target `ironic_enroll_provision_state`:
+- `enroll` — create the node only (no BMC verify)
+- `manageable` — verify BMC credentials (default)
+- `available` — `provide`; runs cleaning when `ironic_automated_clean` is true
+Set per-node `ip` to write static `network_data`. See README / `group_vars/all.yml`.
 ```bash
-# 1) Enroll nodes via the Ironic API (shared BMC defaults in group_vars)
+# 1) Enroll nodes via the Ironic API
 #    ansible-playbook -i inventory playbooks/enroll.yml
 
-# 2) Attach cleaning network data
-{{ ironic_cli_wrapper_path }} node set --network-data network_data.json <node id>
-
-# 3) Move to available (runs cleaning)
-{{ ironic_cli_wrapper_path }} node provide <node id>
-# 4) Set deploy image (direct deploy example)
+# 2) Set deploy image (direct deploy example)
 {% if ubuntu_lts_image_enabled | bool %}
 # Ubuntu whole-disk image
 {{ ironic_cli_wrapper_path }} node set <node id> \
@@ -63,7 +65,7 @@ curl -u {{ ironic_admin_username }}:<password> http://{{ ironic_api_host }}:{{ i
   --instance-info image_os_hash_value=<os image sha256sum>
 {% endif %}
 
-# 5) Deploy
+# 3) Deploy
 {{ ironic_cli_wrapper_path }} node deploy <node id> --config-drive <config-drive.json, optional>
 ```
 
