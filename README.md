@@ -83,6 +83,7 @@ The repository is organized around reusable Ansible roles and consolidated playb
 ├── requirements.yml
 ├── playbooks/
 │   ├── deploy.yml
+│   ├── enroll.yml
 │   ├── validate.yml
 │   ├── upgrade.yml
 │   ├── destroy.yml
@@ -104,11 +105,11 @@ The repository is organized around reusable Ansible roles and consolidated playb
     ├── ironic_api
     ├── ironic_cli
     ├── ironic_conductor
+    ├── ironic_enroll
     ├── lab_prereqs
     ├── lab_firewall
     ├── lab_libvirt
     ├── lab_sushy
-    ├── lab_enroll
     └── lab_vm
 ```
 
@@ -131,6 +132,7 @@ ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml --ask-become-p
 ```
 
 L0 needs nested KVM so the lab VM can run the sushy guests. Production `inventory.example` never loads `group_vars/lab.yml`.
+`lab_up.yml` imports `playbooks/enroll.yml` so every lab bring-up exercises the same enroll path used for real hardware.
 
 | What | Lab value |
 |---|---|
@@ -273,10 +275,56 @@ openstack --os-cloud ironic baremetal node list
 
 ### Enrolling and Provisioning a Node
 
-1. Enroll the node by creating it in the API: `ironic-cli node create --driver redfish --driver-info redfish_address=<redfish https endpoint> --driver-info redfish_username=<bmc user> --driver-info redfish_password=<bmc password> --driver-info redfish_verify_ca=False`
-1. Make the node manageable: `ironic-cli node manage <node id>`
-1. Apply the network data for cleaning (you can find a template in `server_templates/`): `ironic-cli node set --network-data network_data.json <node id>`
-1. Make the node available for provisioning and trigger a cleaning: `ironic-cli node provide <node id>`
+Enrollment is `playbooks/enroll.yml`. It runs on the `ironic` inventory group and
+calls the Ironic REST API on that host (not `ironic-cli`). Shared BMC, addressing,
+and target-state settings live in `group_vars/all.yml` as `ironic_enroll_*`.
+Matching keys on `ironic_nodes` override those defaults per node.
+
+```yaml
+ironic_enroll_redfish_verify_ca: false   # true = verify BMC TLS certs
+ironic_enroll_redfish_username: admin
+ironic_enroll_network_gateway: 192.168.1.1
+ironic_enroll_network_netmask: 255.255.255.0
+ironic_enroll_network_nic: eth0          # name inside the ramdisk/OS
+ironic_enroll_provision_state: manageable
+ironic_nodes:
+  - name: node-1
+    redfish_address: https://bmc-1.example:443
+    redfish_password: secret
+    redfish_system_id: /redfish/v1/Systems/1
+    mac: "52:54:00:00:00:01"
+    ip: 192.168.1.10
+    provision_state: available
+```
+
+```bash
+ansible-playbook -i inventory playbooks/enroll.yml
+```
+
+The full `ironic_nodes` key list is commented in `group_vars/all.yml`.
+
+#### Target provision state
+
+`ironic_enroll_provision_state` (or per-node `provision_state`) is how far enroll
+walks each node. It only moves forward (it will not take `available` back to
+`manageable`). `active` is a deploy step, not an enroll target.
+
+| State | What enroll does | When to use it |
+|---|---|---|
+| `enroll` | Create the node and apply driver_info / network_data. Does not contact the BMC. | Register hardware before BMC access is validated. |
+| `manageable` | Then Ironic `manage` (verify BMC address and credentials). Default. | Inspect, set BIOS/firmware, or stop before cleaning. |
+| `available` | Then Ironic `provide`. If `ironic_automated_clean` is true, IPA boots and wipes the disk first (can take many minutes). | Node should be ready to deploy. |
+
+Wait polling uses `ironic_enroll_wait_retries` × `ironic_enroll_wait_delay` seconds (default 60 × 10). Raise these when cleaning is enabled.
+
+#### Static IP
+
+Set per-node `ip` to write Ironic `network_data` (the standalone/noop equivalent of Neutron). IPA uses it during clean/deploy. Shared `ironic_enroll_network_gateway`, `ironic_enroll_network_netmask`, and `ironic_enroll_network_nic` fill in the rest unless the node overrides them. `nic` is the interface name inside the ramdisk or OS (often `eth0`), not a hypervisor or switch port. `mac` also creates an Ironic port.
+
+Omit `redfish_system_id` to look it up from Redfish by matching `System.Name` to the Ironic node name. Many hardware BMCs name the system `System`; those nodes should set `redfish_system_id` explicitly.
+
+Then continue provisioning:
+
 1. Configure the OS image to provision for direct deploy (Ubuntu example): `ironic-cli node set <node id> --instance-info image_type=whole-disk --instance-info image_disk_format=qcow2 --instance-info image_source=http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img --instance-info image_os_hash_algo=sha256 --instance-info image_os_hash_value=$(curl -fsSL http://<ironic-host>:6180/ubuntu/noble-server-cloudimg-amd64.img.sha256)`
 1. Provision the node: `ironic-cli node deploy <node id> --config-drive <some config-drive json, optional>`
 

@@ -1,0 +1,19 @@
+---
+# Enroll nodes in Ironic via the REST API (no ironic-cli).
+#
+# Runs on the `ironic` group against ironic_api_base_url on that host.
+# Shared BMC, static IP, and target provision state: group_vars/all.yml
+# (ironic_enroll_*). Per-node overrides: ironic_nodes.
+#
+# Target state: enroll | manageable | available (see group_vars/all.yml).
+# Static IP: set per-node `ip` plus ironic_enroll_network_* defaults.
+#
+#   ansible-playbook -i inventory playbooks/enroll.yml
+
+- name: Enroll Ironic nodes
+  hosts: ironic
+  gather_facts: false
+  become: false
+  roles:
+    - role: ironic_enroll
+      tags: [enroll]

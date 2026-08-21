@@ -1,0 +1,30 @@
+---
+# Fallback defaults. group_vars/all.yml is the documented source of truth.
+
+ironic_api_version: "1.91"
+ironic_api_base_url: "http://127.0.0.1:{{ ironic_api_port | default(6385) }}"
+
+ironic_enroll_driver: redfish
+ironic_enroll_boot_interface: "{{ ironic_default_boot_interface | default('redfish-virtual-media') }}"
+ironic_enroll_deploy_interface: "{{ ironic_default_deploy_interface | default('direct') }}"
+ironic_enroll_inspect_interface: "{{ ironic_default_inspect_interface | default('redfish') }}"
+ironic_enroll_network_interface: "{{ ironic_default_network_interface | default('noop') }}"
+ironic_enroll_management_interface: redfish
+ironic_enroll_power_interface: redfish
+
+# Shared BMC settings. Per-node ironic_nodes keys override these.
+ironic_enroll_redfish_verify_ca: false
+ironic_enroll_redfish_address: ""
+ironic_enroll_redfish_username: ""
+ironic_enroll_redfish_password: ""
+
+ironic_enroll_provision_state: manageable
+ironic_enroll_wait_retries: 60
+ironic_enroll_wait_delay: 10
+
+ironic_enroll_network_nic: eth0
+ironic_enroll_network_netmask: "255.255.255.0"
+ironic_enroll_network_gateway: ""
+ironic_enroll_network_id: network0
+
+ironic_nodes: []

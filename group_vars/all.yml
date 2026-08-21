@@ -108,6 +108,12 @@ ironic_api_bind_addr: "0.0.0.0"
 # On multi-homed hosts, override this to the IP reachable from the BMC/provisioning network.
 ironic_api_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn) }}"
 
+# REST client used by playbooks/enroll.yml (and other API-only playbooks).
+# Pin a current microversion; 1.1 rejects driver_info and ?detail=.
+ironic_api_version: "1.91"
+# Enroll talks to the API from the Ironic host.
+ironic_api_base_url: "http://127.0.0.1:{{ ironic_api_port }}"
+
 # -----------------------------------------------------------------------------
 # Ironic HTTP Server Configuration
 # -----------------------------------------------------------------------------
@@ -184,6 +190,90 @@ ironic_enabled_power_interfaces: "redfish"
 
 # RAID
 ironic_enabled_raid_interfaces: "agent,no-raid"
+
+# -----------------------------------------------------------------------------
+# Node enrollment (playbooks/enroll.yml)
+# -----------------------------------------------------------------------------
+# Runs on the `ironic` inventory group and talks to the Ironic REST API on
+# that host (ironic_api_base_url). It does not use ironic-cli.
+#
+# Shared ironic_enroll_* values apply to every node. A matching key on an
+# ironic_nodes entry overrides the shared value for that node only.
+
+ironic_enroll_driver: redfish
+ironic_enroll_boot_interface: "{{ ironic_default_boot_interface }}"
+ironic_enroll_deploy_interface: "{{ ironic_default_deploy_interface }}"
+ironic_enroll_inspect_interface: "{{ ironic_default_inspect_interface }}"
+ironic_enroll_network_interface: "{{ ironic_default_network_interface }}"
+ironic_enroll_management_interface: redfish
+ironic_enroll_power_interface: redfish
+
+# BMC access. redfish_verify_ca is also used when enroll looks up System
+# IDs from the BMC (validate_certs on those HTTP calls).
+# false = skip TLS certificate verification (self-signed BMCs, HTTP sushy).
+# true  = verify the BMC TLS certificate (typical production HTTPS BMC).
+ironic_enroll_redfish_verify_ca: false
+ironic_enroll_redfish_address: ""
+ironic_enroll_redfish_username: ""
+ironic_enroll_redfish_password: ""
+
+# How far enroll walks each node. Per-node `provision_state` overrides this.
+# The playbook only moves nodes forward; it will not take a node backwards
+# (for example available -> manageable).
+#
+#   enroll      Create the node record and apply driver_info / network_data.
+#               Ironic has not yet talked to the BMC. Fast; use when you
+#               want to register hardware before credentials are validated.
+#   manageable  Ironic `manage`: verify BMC address and credentials. Safe
+#               to inspect or change firmware/BIOS settings. Default.
+#   available   From manageable, Ironic `provide`. Ready to deploy.
+#               If ironic_automated_clean is true, this boots IPA and wipes
+#               the disk first (can take many minutes). If false, the node
+#               becomes deployable immediately.
+#
+# `active` (instance deployed) is not an enroll target; use a deploy step.
+ironic_enroll_provision_state: manageable
+# Polling for manage/provide. Increase if automated cleaning is enabled.
+ironic_enroll_wait_retries: 60
+ironic_enroll_wait_delay: 10
+
+# Static addressing written to Ironic network_data (standalone / noop).
+# IPA uses this during clean/deploy when there is no Neutron/DHCP.
+# Set a per-node `ip` to enable it; without `ip`, network_data is left alone.
+# `nic` is the interface name inside the ramdisk/OS (often eth0), not the
+# hypervisor NIC or switch port name.
+ironic_enroll_network_nic: eth0
+ironic_enroll_network_netmask: "255.255.255.0"
+ironic_enroll_network_gateway: ""
+ironic_enroll_network_id: network0
+
+# ironic_nodes keys (required: name):
+#   name                 Ironic node name (also used to match Redfish System.Name
+#                        when redfish_system_id is omitted)
+#   redfish_address      BMC origin, e.g. https://bmc.example:443 (not /redfish/v1)
+#   redfish_username     BMC username
+#   redfish_password     BMC password
+#   redfish_verify_ca    bool; override ironic_enroll_redfish_verify_ca
+#   redfish_system_id    e.g. /redfish/v1/Systems/1. Omit to look up by Name
+#   mac                  NIC MAC; creates an Ironic port (alias: address)
+#   ip                   Static IPv4; writes network_data when set
+#   nic                  Ramdisk/OS interface name (alias: link)
+#   netmask              IPv4 netmask
+#   gateway              Default route; omit/empty for no default route
+#   network_id           network_data network id string
+#   provision_state      enroll | manageable | available
+#   driver / *_interface Per-node driver and interface overrides
+#
+# ironic_nodes:
+#   - name: node-1
+#     redfish_address: https://bmc-1.example:443
+#     redfish_username: admin
+#     redfish_password: secret
+#     redfish_system_id: /redfish/v1/Systems/1
+#     mac: "52:54:00:00:00:01"
+#     ip: 192.168.1.10
+#     provision_state: available
+ironic_nodes: []
 
 # -----------------------------------------------------------------------------
 # Inspection Configuration

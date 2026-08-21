@@ -1,0 +1,27 @@
+{
+  "links": [
+    {
+      "id": {{ enroll_payload.nic | to_json }},
+      "type": "phy"{% if enroll_payload.mac | default('') | length > 0 %},
+      "ethernet_mac_address": {{ enroll_payload.mac | to_json }}{% endif %}
+    }
+  ],
+  "networks": [
+    {
+      "id": "port0",
+      "type": "ipv4",
+      "link": {{ enroll_payload.nic | to_json }},
+      "ip_address": {{ enroll_payload.ip | to_json }},
+      "netmask": {{ enroll_payload.netmask | to_json }},
+      "network_id": {{ enroll_payload.network_id | to_json }}{% if enroll_payload.gateway | default('') | length > 0 %},
+      "routes": [
+        {
+          "network": "0.0.0.0",
+          "netmask": "0.0.0.0",
+          "gateway": {{ enroll_payload.gateway | to_json }}
+        }
+      ]{% endif %}
+    }
+  ],
+  "services": []
+}

@@ -1,0 +1,205 @@
+---
+- name: Build node payload
+  ansible.builtin.set_fact:
+    enroll_payload: "{{ enroll_node | combine({'redfish_system_id': enroll_system_id}) }}"
+    enroll_patch_needed: false
+  vars:
+    enroll_system_id: "{{ ironic_enroll_system_ids[enroll_node.name] }}"
+  no_log: true
+
+- name: Require a Redfish system id
+  ansible.builtin.assert:
+    that:
+      - enroll_payload.redfish_system_id | default('') | length > 0
+    fail_msg: "No redfish_system_id for {{ enroll_node.name }}."
+
+- name: Create Ironic node
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: POST
+    status_code: [201, 409]
+    body_format: json
+    body: "{{ lookup('template', role_path ~ '/templates/node-create.json.j2') | from_json }}"
+  register: enroll_create
+  when: enroll_node.name not in ironic_enroll_existing_names
+  failed_when: enroll_create.status | default(0) not in [201, 409]
+  changed_when: enroll_create.status | default(0) == 201
+  no_log: true
+
+- name: Decide whether shared driver settings need a patch
+  ansible.builtin.set_fact:
+    enroll_patch_needed: "{{ enroll_existing.driver | default('') != enroll_payload.driver or enroll_existing.boot_interface | default('') != enroll_payload.boot_interface or enroll_existing.deploy_interface | default('') != enroll_payload.deploy_interface or enroll_existing.inspect_interface | default('') != enroll_payload.inspect_interface or enroll_existing.network_interface | default('') != enroll_payload.network_interface or enroll_existing.management_interface | default('') != enroll_payload.management_interface or enroll_existing.power_interface | default('') != enroll_payload.power_interface or enroll_existing.driver_info.redfish_address | default('') != enroll_payload.redfish_address or enroll_existing.driver_info.redfish_system_id | default('') != enroll_payload.redfish_system_id or enroll_existing.driver_info.redfish_username | default('') != enroll_payload.redfish_username or (enroll_existing.driver_info.redfish_verify_ca | default(true) | bool) != (enroll_payload.redfish_verify_ca | bool) }}"
+  vars:
+    enroll_existing: "{{ (ironic_enroll_existing.json.nodes | selectattr('name', 'equalto', enroll_node.name) | list | first) | default({}) }}"
+  when: enroll_node.name in ironic_enroll_existing_names
+  no_log: true
+
+- name: Apply common driver settings on existing node
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: PATCH
+    status_code: [200, 202]
+    body_format: json
+    body: "{{ lookup('template', role_path ~ '/templates/node-patch.json.j2') | from_json }}"
+  register: enroll_patch
+  when:
+    - enroll_node.name in ironic_enroll_existing_names
+    - enroll_patch_needed | default(false) | bool
+  failed_when: enroll_patch.status | default(0) not in [200, 202]
+  changed_when: enroll_patch.status | default(0) in [200, 202]
+  no_log: true
+
+- name: Read enrolled node
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: GET
+    status_code: 200
+  register: enroll_node_info
+  no_log: true
+
+- name: Create node port from MAC
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/ports"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: POST
+    status_code: [201, 409]
+    body_format: json
+    body:
+      node_uuid: "{{ enroll_node_info.json.uuid }}"
+      address: "{{ enroll_payload.mac | lower }}"
+  register: enroll_port_create
+  when: enroll_payload.mac | default('') | length > 0
+  failed_when: enroll_port_create.status | default(0) not in [201, 409]
+  changed_when: enroll_port_create.status | default(0) == 201
+
+- name: Apply static network_data
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: PATCH
+    status_code: [200, 202]
+    body_format: json
+    body: "{{ lookup('template', role_path ~ '/templates/network-data-patch.json.j2') | from_json }}"
+  register: enroll_network_patch
+  when:
+    - enroll_payload.ip | default('') | length > 0
+    - enroll_node_info.json.provision_state in ["enroll", "verifying", "manageable"]
+    - enroll_network_data_needed | bool
+  vars:
+    enroll_existing_net: "{{ (enroll_node_info.json.network_data.networks | default([]) | first) | default({}) }}"
+    enroll_network_data_needed: "{{ enroll_existing_net.ip_address | default('') != enroll_payload.ip or enroll_existing_net.netmask | default('') != enroll_payload.netmask or (enroll_existing_net.routes | default([]) | first | default({})).gateway | default('') != enroll_payload.gateway }}"
+  failed_when: enroll_network_patch.status | default(0) not in [200, 202]
+  changed_when: enroll_network_patch.status | default(0) in [200, 202]
+
+- name: Move node to manageable
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}/states/provision"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: PUT
+    status_code: [202, 409]
+    body_format: json
+    body:
+      target: manage
+  register: enroll_manage
+  when:
+    - enroll_payload.provision_state in ["manageable", "available"]
+    - enroll_node_info.json.provision_state in ["enroll", "verifying"]
+  failed_when: enroll_manage.status | default(0) not in [202, 409]
+  changed_when: enroll_manage.status | default(0) == 202
+
+- name: Wait until node is manageable
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: GET
+    status_code: 200
+  register: enroll_wait_manage
+  until: enroll_wait_manage.json.provision_state in ["manageable", "available", "active"]
+  retries: "{{ ironic_enroll_wait_retries | int }}"
+  delay: "{{ ironic_enroll_wait_delay | int }}"
+  when:
+    - enroll_payload.provision_state in ["manageable", "available"]
+    - enroll_manage is changed or enroll_node_info.json.provision_state in ["enroll", "verifying"]
+  no_log: true
+
+- name: Refresh node after manage
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: GET
+    status_code: 200
+  register: enroll_node_after_manage
+  when: enroll_payload.provision_state == "available"
+  no_log: true
+
+- name: Move node to available
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}/states/provision"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: PUT
+    status_code: [202, 409]
+    body_format: json
+    body:
+      target: provide
+  register: enroll_provide
+  when:
+    - enroll_payload.provision_state == "available"
+    - (enroll_node_after_manage.json.provision_state | default(enroll_node_info.json.provision_state)) in ["manageable"]
+  failed_when: enroll_provide.status | default(0) not in [202, 409]
+  changed_when: enroll_provide.status | default(0) == 202
+
+- name: Wait until node is available
+  ansible.builtin.uri:
+    url: "{{ ironic_api_base_url }}/v1/nodes/{{ enroll_node.name }}"
+    url_username: "{{ ironic_admin_username }}"
+    url_password: "{{ ironic_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-OpenStack-Ironic-API-Version: "{{ ironic_api_version }}"
+    method: GET
+    status_code: 200
+  register: enroll_wait_available
+  until: enroll_wait_available.json.provision_state in ["available", "active"]
+  retries: "{{ ironic_enroll_wait_retries | int }}"
+  delay: "{{ ironic_enroll_wait_delay | int }}"
+  when: enroll_provide is changed
+  no_log: true

@@ -1,0 +1,17 @@
+{
+  "name": {{ enroll_payload.name | to_json }},
+  "driver": {{ enroll_payload.driver | to_json }},
+  "boot_interface": {{ enroll_payload.boot_interface | to_json }},
+  "deploy_interface": {{ enroll_payload.deploy_interface | to_json }},
+  "inspect_interface": {{ enroll_payload.inspect_interface | to_json }},
+  "network_interface": {{ enroll_payload.network_interface | to_json }},
+  "management_interface": {{ enroll_payload.management_interface | to_json }},
+  "power_interface": {{ enroll_payload.power_interface | to_json }},
+  "driver_info": {
+    "redfish_address": {{ enroll_payload.redfish_address | to_json }},
+    "redfish_system_id": {{ enroll_payload.redfish_system_id | to_json }},
+    "redfish_username": {{ enroll_payload.redfish_username | to_json }},
+    "redfish_password": {{ enroll_payload.redfish_password | to_json }},
+    "redfish_verify_ca": {{ enroll_payload.redfish_verify_ca | bool | to_json }}
+  }
+}

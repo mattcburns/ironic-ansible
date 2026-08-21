@@ -1,0 +1,57 @@
+---
+# Fill ironic_enroll_system_ids[name] when the caller omitted redfish_system_id
+# by matching Redfish System.Name to the Ironic node name.
+
+- name: Record provided system id
+  ansible.builtin.set_fact:
+    ironic_enroll_system_ids: "{{ ironic_enroll_system_ids | combine({enroll_node.name: enroll_node.redfish_system_id}) }}"
+  when: enroll_node.redfish_system_id | default('') | length > 0
+
+- name: Look up Redfish system id by name
+  when: enroll_node.redfish_system_id | default('') | length == 0
+  block:
+    - name: List Redfish Systems
+      ansible.builtin.uri:
+        url: "{{ enroll_node.redfish_address }}/redfish/v1/Systems"
+        url_username: "{{ enroll_node.redfish_username }}"
+        url_password: "{{ enroll_node.redfish_password }}"
+        force_basic_auth: true
+        method: GET
+        status_code: 200
+        validate_certs: "{{ enroll_node.redfish_verify_ca | bool }}"
+        timeout: 15
+      register: enroll_redfish_systems
+      no_log: true
+
+    - name: Fetch each Redfish system
+      ansible.builtin.uri:
+        url: "{{ enroll_node.redfish_address }}{{ item['@odata.id'] }}"
+        url_username: "{{ enroll_node.redfish_username }}"
+        url_password: "{{ enroll_node.redfish_password }}"
+        force_basic_auth: true
+        method: GET
+        status_code: 200
+        validate_certs: "{{ enroll_node.redfish_verify_ca | bool }}"
+        timeout: 15
+      loop: "{{ enroll_redfish_systems.json.Members }}"
+      loop_control:
+        label: "{{ item['@odata.id'] }}"
+      register: enroll_redfish_details
+      no_log: true
+
+    - name: Match Redfish system name
+      ansible.builtin.set_fact:
+        enroll_matched_system: "{{ enroll_redfish_details.results | map(attribute='json') | selectattr('Name', 'equalto', enroll_node.name) | list }}"
+
+    - name: Require a Redfish system named after the node
+      ansible.builtin.assert:
+        that:
+          - enroll_matched_system | length == 1
+        fail_msg: >-
+          No unique Redfish system named {{ enroll_node.name }} at
+          {{ enroll_node.redfish_address }}. Set redfish_system_id on the node
+          or check sushy/BMC inventory.
+
+    - name: Record resolved system id
+      ansible.builtin.set_fact:
+        ironic_enroll_system_ids: "{{ ironic_enroll_system_ids | combine({enroll_node.name: enroll_matched_system[0]['@odata.id']}) }}"
