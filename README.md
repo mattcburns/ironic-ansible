@@ -169,7 +169,10 @@ ansible-playbook -i inventory.lab.yml playbooks/lab_down.yml --ask-become-pass
 ansible-playbook -i inventory.lab-remote.yml playbooks/lab_down.yml --ask-become-pass
 ```
 
-`lab_smoke.yml` does not boot IPA. macOS (including Apple Silicon M5 Pro): [lima/README.md](lima/README.md).
+`lab_smoke.yml` deploys `lab_bmc_nodes[0]` to `active` (a full IPA boot) to
+verify the deploy path end to end; skip that part for a fast, seconds-long
+health check with `--skip-tags provision`. macOS (including Apple Silicon
+M5 Pro): [lima/README.md](lima/README.md).
 
 ## 🚀 Quick Start
 

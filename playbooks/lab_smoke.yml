@@ -1,7 +1,10 @@
 ---
-# Fast health checks. Does not run a full IPA deploy.
+# Fast health checks, plus a full IPA deploy of one node (tag: provision).
 #
 #   ansible-playbook -i inventory.lab.yml playbooks/lab_smoke.yml --ask-become-pass
+#
+# Skip the deploy for a quick health-only pass (seconds instead of minutes):
+#   ansible-playbook -i inventory.lab.yml playbooks/lab_smoke.yml --skip-tags provision --ask-become-pass
 
 - name: Smoke-test the lab
   hosts: lab
@@ -39,7 +42,7 @@
 
     - name: Ironic API node list
       ansible.builtin.uri:
-        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes"
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes?detail=true"
         url_username: "{{ ironic_admin_username }}"
         url_password: "{{ ironic_admin_password }}"
         force_basic_auth: true
@@ -93,10 +96,18 @@
       ansible.builtin.assert:
         that:
           - "'state=running' in (res.stdout | default(''))"
-          - (res.stdout | regex_search('cdroms=(\\d+)', '\\1') | first | default('0') | int)
-            >= (2 if (lab_node_dual_cd | bool) else 1)
+          - >-
+            ((res.stdout | regex_search('cdroms=(\\d+)', '\\1') | first | default('0') | int)
+            >= (2 if (lab_node_dual_cd | bool) else 1))
+            or ((smoke_ironic.json.nodes | selectattr('name', 'equalto', res.node.name)
+            | map(attribute='provision_state') | first | default('')) == 'active')
           - (res.stdout | regex_search('serial=(.+)', '\\1') | first | default('') | trim | length) > 0
-        fail_msg: "Domain check failed for {{ res.node.name }}:\n{{ res.stdout | default('') }}\n{{ res.stderr | default('') }}"
+        fail_msg: >-
+          Domain check failed for {{ res.node.name }} (provision_state={{
+          (smoke_ironic.json.nodes | selectattr('name', 'equalto', res.node.name)
+          | map(attribute='provision_state') | first | default('unknown')) }}):
+          {{ res.stdout | default('') }}
+          {{ res.stderr | default('') }}
       loop: "{{ smoke_domains.results }}"
       loop_control:
         loop_var: res
@@ -111,8 +122,147 @@
           Ironic nodes {{ smoke_ironic.json.nodes | map(attribute='name') | list }}
           do not include {{ lab_bmc_nodes | map(attribute='name') | list }}.
 
+    - name: Choose a node to fully provision
+      ansible.builtin.set_fact:
+        smoke_provision_node: "{{ lab_bmc_nodes[0].name }}"
+      tags: [provision]
+
+    - name: Get current state of the provisioning node
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes/{{ smoke_provision_node }}"
+        url_username: "{{ ironic_admin_username }}"
+        url_password: "{{ ironic_admin_password }}"
+        force_basic_auth: true
+        headers:
+          X-OpenStack-Ironic-API-Version: "1.91"
+        method: GET
+        status_code: 200
+      register: smoke_provision_before
+      tags: [provision]
+
+    - name: Move node to available
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes/{{ smoke_provision_node }}/states/provision"
+        url_username: "{{ ironic_admin_username }}"
+        url_password: "{{ ironic_admin_password }}"
+        force_basic_auth: true
+        headers:
+          X-OpenStack-Ironic-API-Version: "1.91"
+        method: PUT
+        status_code: [202, 409]
+        body_format: json
+        body:
+          target: provide
+      register: smoke_provide
+      until: smoke_provide.status | default(0) in [202, 409]
+      retries: 5
+      delay: 3
+      when: smoke_provision_before.json.provision_state == "manageable"
+      tags: [provision]
+
+    - name: Wait for node to become available
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes/{{ smoke_provision_node }}"
+        url_username: "{{ ironic_admin_username }}"
+        url_password: "{{ ironic_admin_password }}"
+        force_basic_auth: true
+        headers:
+          X-OpenStack-Ironic-API-Version: "1.91"
+        method: GET
+        status_code: 200
+      register: smoke_wait_available
+      until: smoke_wait_available.json.provision_state in ["available", "active"]
+      retries: 30
+      delay: 5
+      when: smoke_provision_before.json.provision_state == "manageable"
+      tags: [provision]
+
+    - name: Fetch Ubuntu image checksum
+      ansible.builtin.uri:
+        url: "{{ ubuntu_lts_image_checksum_http_url }}"
+        return_content: true
+        status_code: 200
+      register: smoke_image_checksum
+      when: smoke_provision_before.json.provision_state != "active"
+      tags: [provision]
+
+    - name: Set deploy image on the node
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes/{{ smoke_provision_node }}"
+        url_username: "{{ ironic_admin_username }}"
+        url_password: "{{ ironic_admin_password }}"
+        force_basic_auth: true
+        headers:
+          X-OpenStack-Ironic-API-Version: "1.91"
+        method: PATCH
+        status_code: [200, 202]
+        body_format: json
+        body:
+          - op: add
+            path: /instance_info/image_type
+            value: whole-disk
+          - op: add
+            path: /instance_info/image_disk_format
+            value: "{{ ubuntu_lts_image_disk_format }}"
+          - op: add
+            path: /instance_info/image_source
+            value: "{{ ubuntu_lts_image_http_url }}"
+          - op: add
+            path: /instance_info/image_os_hash_algo
+            value: sha256
+          - op: add
+            path: /instance_info/image_os_hash_value
+            value: "{{ smoke_image_checksum.content | trim }}"
+      when: smoke_provision_before.json.provision_state != "active"
+      tags: [provision]
+
+    - name: Trigger deploy
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes/{{ smoke_provision_node }}/states/provision"
+        url_username: "{{ ironic_admin_username }}"
+        url_password: "{{ ironic_admin_password }}"
+        force_basic_auth: true
+        headers:
+          X-OpenStack-Ironic-API-Version: "1.91"
+        method: PUT
+        status_code: 202
+        body_format: json
+        body:
+          target: active
+      when: smoke_provision_before.json.provision_state != "active"
+      tags: [provision]
+
+    - name: Wait for node to become active
+      ansible.builtin.uri:
+        url: "http://{{ lab_service_host }}:{{ ironic_api_port | default(6385) }}/v1/nodes/{{ smoke_provision_node }}"
+        url_username: "{{ ironic_admin_username }}"
+        url_password: "{{ ironic_admin_password }}"
+        force_basic_auth: true
+        headers:
+          X-OpenStack-Ironic-API-Version: "1.91"
+        method: GET
+        status_code: 200
+      register: smoke_wait_active
+      until: smoke_wait_active.json.provision_state in ["active", "deploy failed", "error"]
+      retries: 90
+      delay: 10
+      when: smoke_provision_before.json.provision_state != "active"
+      tags: [provision]
+
+    - name: Assert node provisioned successfully
+      ansible.builtin.assert:
+        that:
+          - (smoke_wait_active.json.provision_state | default('active')) == "active"
+        fail_msg: >-
+          Node {{ smoke_provision_node }} failed to provision:
+          state={{ smoke_wait_active.json.provision_state | default('unknown') }}
+          last_error={{ smoke_wait_active.json.last_error | default('') }}
+      tags: [provision]
+
     - name: Smoke passed
       ansible.builtin.debug:
         msg: >-
           Lab smoke passed: Redfish, {{ lab_bmc_nodes | length }} systems,
-          Ironic API, running domains with CD trays and serial consoles.
+          Ironic API, running domains with CD trays and serial consoles{{
+          (', ' ~ smoke_provision_node ~ ' deployed to active.')
+          if (smoke_provision_node is defined) else '.' }}
