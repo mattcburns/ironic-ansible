@@ -49,3 +49,6 @@ ansible.log
 *.tmp
 temp/
 .work/
+
+# Generated lab OpenStack cloud profile (contains lab credentials)
+/clouds.yaml

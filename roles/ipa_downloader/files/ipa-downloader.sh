@@ -2,17 +2,17 @@
 # =============================================================================
 # Ironic Python Agent (IPA) Image Downloader
 # =============================================================================
-# Downloads IPA kernel and initramfs from upstream OpenStack.
-# Downloads optional ESP image artifact for UEFI virtual-media ISO creation.
+# Downloads IPA kernel/initramfs and the ESP from a mattcburns/ironic-iso
+# GitHub release (IPA_BASE_URL + filenames, ESP_IMAGE_URL).
 # =============================================================================
 
 set -euo pipefail
 
 # Configuration (overridable via environment)
-IPA_BASE_URL="${IPA_BASE_URL:-https://tarballs.opendev.org/openstack/ironic-python-agent/dib/files}"
+IPA_BASE_URL="${IPA_BASE_URL:-https://github.com/mattcburns/ironic-iso/releases/download/v0.0.30}"
 IPA_IMAGES_DIR="${IPA_IMAGES_DIR:-/var/lib/ironic/http-images/ipa}"
-IPA_KERNEL="${IPA_KERNEL:-ipa-centos9-master.kernel}"
-IPA_RAMDISK="${IPA_RAMDISK:-ipa-centos9-master.initramfs}"
+IPA_KERNEL="${IPA_KERNEL:-ironic-centos9-ipa-stable-2026.1-amd64.kernel}"
+IPA_RAMDISK="${IPA_RAMDISK:-ironic-centos9-ipa-stable-2026.1-amd64.initramfs}"
 ESP_IMAGE_URL="${ESP_IMAGE_URL:-}"
 ESP_IMAGE_PATH="${ESP_IMAGE_PATH:-/var/lib/ironic/http-images/esp.img}"
 

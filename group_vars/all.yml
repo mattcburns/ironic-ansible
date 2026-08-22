@@ -164,11 +164,18 @@ ironic_default_boot_interface: "redfish-virtual-media"
 ironic_enabled_deploy_interfaces: "direct,ramdisk"
 ironic_default_deploy_interface: "direct"
 # Boot ISO settings for UEFI virtual-media ISO creation.
-# ESP image artifacts are sourced from:
+# IPA kernel/ramdisk and the ESP all come from one GitHub release of:
 # https://github.com/mattcburns/ironic-iso
-ironic_esp_image_release_tag: "v0.0.27"
-ironic_esp_image_filename: "esp.img"
-ironic_esp_image_url: "https://github.com/mattcburns/ironic-iso/releases/download/{{ ironic_esp_image_release_tag }}/{{ ironic_esp_image_filename }}"
+#
+# v0.0.30 ships per-arch assets (Debian arch names: amd64 / arm64):
+#   {{ stem }}-amd64.kernel / .initramfs / -esp.img
+#   {{ stem }}-arm64.kernel / .initramfs / -esp.img
+ironic_iso_release_tag: "v0.0.30"
+ironic_iso_arch: "{{ 'arm64' if ansible_architecture | default('x86_64') in ['aarch64', 'arm64'] else 'amd64' }}"
+ironic_iso_base_url: "https://github.com/mattcburns/ironic-iso/releases/download/{{ ironic_iso_release_tag }}"
+ironic_iso_ipa_stem: "ironic-centos9-ipa-stable-2026.1"
+ironic_esp_image_filename: "{{ ironic_iso_ipa_stem }}-{{ ironic_iso_arch }}-esp.img"
+ironic_esp_image_url: "{{ ironic_iso_base_url }}/{{ ironic_esp_image_filename }}"
 # The ESP image is downloaded under ironic_http_images_dir and mounted into the
 # conductor container at /shared/html.
 ironic_grub_config_path: "EFI/centos/grub.cfg"
@@ -292,22 +299,23 @@ ironic_var_log_dir: "/var/log/ironic"
 # -----------------------------------------------------------------------------
 # IPA (Ironic Python Agent) Configuration
 # -----------------------------------------------------------------------------
-
-ipa_base_url: "https://tarballs.opendev.org/openstack/ironic-python-agent/dib/files"
+# Downloaded from the same ironic-iso release as the ESP (see ironic_iso_*).
+ipa_base_url: "{{ ironic_iso_base_url }}"
 ipa_images_directory: "{{ ironic_http_images_dir }}/ipa"
 
-# IPA images to download.
-# WARNING: The default "master" images are continuously-updated upstream CI
-# builds and may change without notice. For production, use a stable release
-# branch (e.g. ipa-centos9-stable-2024.2.kernel / .initramfs).
-ipa_kernel_filename: "ipa-centos9-master.kernel"
-ipa_ramdisk_filename: "ipa-centos9-master.initramfs"
+ipa_kernel_filename: "{{ ironic_iso_ipa_stem }}-{{ ironic_iso_arch }}.kernel"
+ipa_ramdisk_filename: "{{ ironic_iso_ipa_stem }}-{{ ironic_iso_arch }}.initramfs"
 # Base kernel parameters passed to IPA for deploy/clean/inspection boots.
+# group_vars/lab.yml overrides this for headless nested guests (serial console).
 ironic_ipa_kernel_append_params: "nofb vga=normal"
 # Optional public SSH key injected into the IPA ramdisk for debugging.
 # Example: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@example"
 # Note: dynamic-login supports one key via sshkey="...".
 ironic_ipa_ssh_public_key: ""
+# Retries for a single IPA agent command after a connection failure
+# (e.g. agent not listening yet). Matches ironic's own upstream default;
+# slower boot environments (nested virt) need a much higher value.
+ironic_agent_max_command_attempts: 3
 
 ipa_downloader_script_path: "/opt/ironic/ipa-downloader.sh"
 os_image_downloader_script_path: "/opt/ironic/os-image-downloader.sh"

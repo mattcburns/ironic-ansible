@@ -127,12 +127,18 @@ The lab always runs **inside a Linux VM**. Ironic, sushy-tools, and the fake BMC
 ansible-playbook -i inventory.lab.yml playbooks/lab_up.yml --ask-become-pass
 ansible-playbook -i inventory.lab.yml playbooks/lab_smoke.yml --ask-become-pass
 
-# macOS: Lima already running
-ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml --ask-become-pass
+# macOS (M3+ / M5 Pro or Intel): start Lima, then deploy into it
+# See lima/README.md (macOS 15+, nested virt, Apple Silicon notes).
+limactl start --name=ironic-lab lima/lab.yaml
+ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml
+ansible-playbook -i inventory.lab-remote.yml playbooks/lab_smoke.yml
 ```
 
 L0 needs nested KVM so the lab VM can run the sushy guests. Production `inventory.example` never loads `group_vars/lab.yml`.
 `lab_up.yml` imports `playbooks/enroll.yml` so every lab bring-up exercises the same enroll path used for real hardware.
+On Apple Silicon, L2 guests are aarch64 so nested KVM works; IPA/ESP come from the `arm64` assets in `mattcburns/ironic-iso` `v0.0.30`.
+x86_64 lab VMs (Linux L0, or Lima on an Intel Mac) pin non-secure-boot OVMF and a VGA device; Ubuntu's q35 autoselection would otherwise boot `OVMF_CODE.secboot.fd` and never read the IPA ISO.
+`lab_up` also inserts a skip-DNAT rule on the lab bridge after Ironic containers start, because Docker DNAT of `:6385` from `192.168.125.0/24` hairpins and IPA stays in `wait call-back`. `group_vars/lab.yml` sets `ironic_ipa_kernel_append_params` to a serial console; `vga=normal` hangs a headless x86 ramdisk before the NIC is up.
 
 | What | Lab value |
 |---|---|
@@ -141,6 +147,19 @@ L0 needs nested KVM so the lab VM can run the sushy guests. Production `inventor
 | Redfish | `http://<lab-vm>:8001/redfish/v1` (`admin` / `password`) |
 | Nested guests | `lab-node-1`, `lab-node-2` on `192.168.125.0/24` *inside* the VM |
 | Ironic HTTP (from guests) | `http://192.168.125.1:6180` |
+
+`lab_up.yml` also fetches the lab's `clouds.yaml` into a gitignored
+`clouds.yaml` at the repo root on whatever machine ran `ansible-playbook`
+(your Mac, in the Lima flow) -- it never touches your real
+`~/.config/openstack/clouds.yaml`. Install the OpenStack CLI (`brew install
+openstackclient` on macOS) and point it at the generated file with an env
+var:
+
+```bash
+OS_CLIENT_CONFIG_FILE=clouds.yaml openstack --os-cloud ironic baremetal node list
+```
+
+Set `lab_export_clouds_yaml: false` to skip the fetch.
 
 Tear down:
 
@@ -152,7 +171,10 @@ ansible-playbook -i inventory.lab.yml playbooks/lab_down.yml --ask-become-pass
 ansible-playbook -i inventory.lab-remote.yml playbooks/lab_down.yml --ask-become-pass
 ```
 
-`lab_smoke.yml` does not boot IPA. macOS Lima notes: [lima/README.md](lima/README.md).
+`lab_smoke.yml` deploys `lab_bmc_nodes[0]` to `active` (a full IPA boot) to
+verify the deploy path end to end; skip that part for a fast, seconds-long
+health check with `--skip-tags provision`. macOS (including Apple Silicon
+M5 Pro): [lima/README.md](lima/README.md).
 
 ## 🚀 Quick Start
 
@@ -417,14 +439,15 @@ ironic_enabled_boot_interfaces: "redfish-virtual-media,redfish-https"
 ironic_default_boot_interface: "redfish-virtual-media"
 ironic_enabled_deploy_interfaces: "direct,ramdisk"
 ironic_default_deploy_interface: "direct"
-ironic_esp_image_release_tag: "v0.0.27"
-ironic_esp_image_filename: "esp.img"
-ironic_esp_image_url: "https://github.com/mattcburns/ironic-iso/releases/download/{{ ironic_esp_image_release_tag }}/{{ ironic_esp_image_filename }}"
+ironic_iso_release_tag: "v0.0.30"
+ironic_iso_arch: "amd64"  # arm64 on Apple Silicon lab VMs
+ironic_esp_image_filename: "ironic-centos9-ipa-stable-2026.1-amd64-esp.img"
+ironic_esp_image_url: "https://github.com/mattcburns/ironic-iso/releases/download/{{ ironic_iso_release_tag }}/{{ ironic_esp_image_filename }}"
 ironic_grub_config_path: "EFI/centos/grub.cfg"
 ironic_bootloader: "file:///shared/html/{{ ironic_esp_image_filename }}"
 ironic_bootloader_by_arch: ""
 ironic_file_url_allowed_paths: ""
-ironic_ipa_kernel_append_params: "nofb vga=normal"
+ironic_ipa_kernel_append_params: "nofb vga=normal"  # lab.yml overrides this for headless guests
 ironic_ipa_ssh_public_key: ""  # optional: inject one debug SSH key into IPA
 ironic_enabled_network_interfaces: "noop"
 ironic_default_network_interface: "noop"
@@ -432,12 +455,13 @@ ironic_enabled_inspect_interfaces: "redfish,no-inspect"
 ironic_default_inspect_interface: "redfish"
 ```
 The defaults above are aligned for `ghcr.io/mattcburns/ironic-standalone`.
-ESP image artifacts are downloaded from the tagged release in
-`mattcburns/ironic-iso` and exposed to the conductor via
+IPA kernel/initramfs and the ESP are downloaded from the same tagged release
+in `mattcburns/ironic-iso`. The ESP is exposed to the conductor via
 `file:///shared/html/{{ ironic_esp_image_filename }}`. This keeps deploy and
 clean flows on Ironic's runtime ISO-building path without requiring `deploy_iso`.
 If you replace the ESP source, update both `ironic_esp_image_url` and
 `ironic_grub_config_path` to match the GRUB binary embedded in that image.
+arm64 hosts download `*-arm64.kernel` / `*-arm64-esp.img` from the same tag.
 Set `ironic_ipa_ssh_public_key` to a public key when you need shell access to
 the IPA live ramdisk during clean/deploy/inspect debugging. This maps to
 Ironic kernel append parameters (`sshkey="..."`) and supports one key.

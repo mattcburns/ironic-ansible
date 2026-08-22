@@ -14,7 +14,7 @@ lab_bmc_nodes:
   - { name: lab-node-1, ip: 192.168.125.10, mac: "52:54:00:5a:01:01" }
   - { name: lab-node-2, ip: 192.168.125.11, mac: "52:54:00:5a:01:02" }
 
-lab_node_memory_mib: 2048
+lab_node_memory_mib: 4096
 lab_node_vcpus: 2
 lab_node_disk_gb: 20
 lab_node_dual_cd: false
@@ -45,6 +45,13 @@ ironic_nodes: "{{ lab_bmc_nodes }}"
 ironic_api_host: "{{ lab_network_gateway }}"
 ironic_automated_clean: false
 
+# Cloud image and IPA arch follow the lab VM (arm64 on Apple Silicon Lima).
+ubuntu_lts_image_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'amd64' }}"
+
+# Lab guests are headless. vga=normal hangs the x86 IPA kernel before it
+# brings a NIC up; serial console is how you debug wait-call-back.
+ironic_ipa_kernel_append_params: "nofb nomodeset console=ttyS0,115200n8"
+
 # Lab-only passwords. Do not use a substring of node names (Ansible redacts
 # secret strings inside registered API JSON).
 ironic_admin_username: admin
@@ -54,3 +61,15 @@ mariadb_root_password: labpass
 rabbitmq_password: labpass
 
 flatcar_image_enabled: false
+
+# Nested/emulated aarch64 boots the IPA ramdisk far slower than real
+# hardware; ironic's default of 3 connection retries gives up on the agent
+# well before it finishes booting and starts listening.
+ironic_agent_max_command_attempts: 60
+
+# lab_up fetches the lab's clouds.yaml into a gitignored file at the repo
+# root on whatever machine runs ansible-playbook (the Mac, in the Lima flow)
+# -- never your real ~/.config/openstack/clouds.yaml. Point
+# OS_CLIENT_CONFIG_FILE at it to use --os-cloud. Set false to skip the fetch.
+lab_export_clouds_yaml: true
+lab_local_clouds_yaml_path: "{{ playbook_dir }}/../clouds.yaml"

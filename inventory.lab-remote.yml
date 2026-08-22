@@ -2,16 +2,22 @@
 # User-supplied Linux lab VM (Lima on macOS, or any SSH-able Ubuntu/Fedora).
 # The playbooks do not create or destroy this VM.
 #
-#   ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml --ask-become-pass
+# Lima (default instance name from lima/README.md):
+#   limactl start --name=ironic-lab lima/lab.yaml
+#   ansible-playbook -i inventory.lab-remote.yml playbooks/lab_up.yml
 #
-# Set ansible_host / ansible_user / key to match your VM.
+# Non-Lima: set ansible_host / ansible_user / ansible_ssh_private_key_file
+# and drop ansible_ssh_common_args.
 all:
   children:
     lab:
       hosts:
         ironic-lab:
-          ansible_host: 127.0.0.1
+          ansible_host: lima-ironic-lab
           ansible_user: "{{ lookup('env', 'USER') }}"
+          ansible_ssh_common_args: >-
+            -F {{ lookup('env', 'HOME') }}/.lima/ironic-lab/ssh.config
+            -o IdentitiesOnly=yes
           ansible_python_interpreter: /usr/bin/python3
     ironic:
       hosts:

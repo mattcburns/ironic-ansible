@@ -25,6 +25,17 @@
   when: ansible_os_family == "RedHat"
   tags: [packages]
 
+- name: Install aarch64 firmware and amd64-container emulation (Fedora / RHEL)
+  ansible.builtin.dnf:
+    name:
+      - edk2-aarch64
+      - qemu-user-static
+    state: present
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_architecture in ["aarch64", "arm64"]
+  tags: [packages]
+
 - name: Install lab packages (Debian / Ubuntu)
   ansible.builtin.apt:
     name:
@@ -36,7 +47,6 @@
       - python3-docker
       - libvirt-daemon-system
       - libvirt-clients
-      - qemu-system-x86
       - qemu-utils
       - virtinst
       - docker.io
@@ -49,6 +59,39 @@
     update_cache: true
     cache_valid_time: 3600
   when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Install x86 qemu and non-secure-boot OVMF (Debian / Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - qemu-system-x86
+      - ovmf
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - ansible_architecture not in ["aarch64", "arm64"]
+  tags: [packages]
+
+- name: Install x86 OVMF (Fedora / RHEL)
+  ansible.builtin.dnf:
+    name:
+      - edk2-ovmf
+    state: present
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_architecture not in ["aarch64", "arm64"]
+  tags: [packages]
+
+- name: Install aarch64 qemu, firmware, and amd64-container emulation (Debian / Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - qemu-system-arm
+      - qemu-efi-aarch64
+      - qemu-user-static
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - ansible_architecture in ["aarch64", "arm64"]
   tags: [packages]
 
 - name: Fail on unsupported OS family

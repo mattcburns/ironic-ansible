@@ -1,4 +1,34 @@
 ---
+- name: Probe UEFI firmware files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ (lab_node_firmware_pairs | map(attribute='code') | list) + (lab_node_firmware_pairs | map(attribute='vars') | list) }}"
+  register: lab_fw_probe
+
+- name: Map firmware probe results
+  ansible.builtin.set_fact:
+    lab_fw_present: "{{ dict(lab_fw_probe.results | map(attribute='item') | zip(lab_fw_probe.results | map(attribute='stat.exists'))) }}"
+
+- name: Select the first firmware pair present on disk
+  ansible.builtin.set_fact:
+    lab_node_firmware_code: "{{ item.code }}"
+    lab_node_firmware_vars: "{{ item.vars }}"
+    lab_node_firmware_resolved: true
+  loop: "{{ lab_node_firmware_pairs }}"
+  when:
+    - not (lab_node_firmware_resolved | default(false) | bool)
+    - lab_fw_present[item.code] | default(false)
+    - lab_fw_present[item.vars] | default(false)
+
+- name: Fail if UEFI firmware is missing
+  ansible.builtin.fail:
+    msg: >-
+      {{ lab_node_arch }} lab guests need a non-secure-boot OVMF/AAVMF pair.
+      Looked for: {{ lab_node_firmware_pairs }}.
+      Debian/Ubuntu x86_64: ovmf. Debian/Ubuntu aarch64: qemu-efi-aarch64.
+      Fedora x86_64: edk2-ovmf. Fedora aarch64: edk2-aarch64.
+  when: not (lab_node_firmware_resolved | default(false) | bool)
+
 - name: Render libvirt network XML
   ansible.builtin.template:
     src: lab-network.xml.j2
@@ -24,6 +54,10 @@
   failed_when: >-
     lab_net_start.rc != 0
     and 'already active' not in ((lab_net_start.stdout ~ lab_net_start.stderr) | lower)
+  tags: [network]
+
+- name: Open the lab bridge for guests and skip Docker DNAT hairpin
+  ansible.builtin.include_tasks: iptables.yml
   tags: [network]
 
 - name: Autostart libvirt network

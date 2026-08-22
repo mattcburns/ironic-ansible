@@ -49,7 +49,9 @@
       ansible.builtin.fail:
         msg: >-
           /dev/kvm is missing inside the lab VM. On Linux L0, enable nested
-          virtualization. On macOS, Lima must have nestedVirtualization: true.
+          virtualization. On macOS, use lima/lab.yaml (vmType: vz,
+          nestedVirtualization: true) on macOS 15+ with Apple Silicon M3 or
+          later (M5 Pro included) or a recent Intel Mac. See lima/README.md.
       when: not lab_kvm.stat.exists
 
     - name: Read total memory (MiB)
@@ -94,4 +96,48 @@
 
 - ansible.builtin.import_playbook: deploy.yml
 
+# Docker publishes Ironic ports while deploy.yml starts containers, which
+# recreates nat PREROUTING. Re-apply the lab-bridge skip-DNAT afterwards.
+- name: Re-apply lab guest NAT after Docker publishes Ironic ports
+  hosts: lab
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Re-apply lab bridge iptables
+      ansible.builtin.include_role:
+        name: lab_libvirt
+        tasks_from: iptables.yml
+      tags: [network]
+
 - ansible.builtin.import_playbook: enroll.yml
+
+- name: Export the lab OpenStack cloud profile to the repo
+  hosts: lab
+  gather_facts: false
+  tasks:
+    - name: Fetch lab clouds.yaml into the repo
+      ansible.builtin.fetch:
+        src: "{{ ironic_clouds_yaml_path }}"
+        dest: "{{ lab_local_clouds_yaml_path }}"
+        flat: true
+        mode: "0600"
+      become: true
+      no_log: true
+      when: (ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool)
+
+    - name: Restrict local cloud profile permissions
+      ansible.builtin.file:
+        path: "{{ lab_local_clouds_yaml_path }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+      when: (ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool)
+
+    - name: Show local cloud profile path
+      ansible.builtin.debug:
+        msg: >-
+          {{ ('Wrote lab cloud profile to ' ~ lab_local_clouds_yaml_path ~
+              ' -- try: OS_CLIENT_CONFIG_FILE=' ~ lab_local_clouds_yaml_path ~
+              ' openstack --os-cloud ' ~ ironic_cloud_name ~ ' baremetal node list')
+             if ((ironic_clouds_yaml_enabled | bool) and (lab_export_clouds_yaml | bool))
+             else 'Skipped local clouds.yaml export (ironic_clouds_yaml_enabled or lab_export_clouds_yaml is false)' }}

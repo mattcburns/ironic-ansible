@@ -1,6 +1,18 @@
-# Lima instance that becomes the Linux lab host on macOS.
-# Nested virtualization is required so L2 lab-node-* domains can use KVM.
+# Linux lab VM for macOS (Lima). Ironic/sushy/L2 guests run inside this VM.
+#
+#   brew install lima
+#   limactl start --name=ironic-lab lima/lab.yaml
+#
+# Nested virtualization (same-arch KVM inside the guest) needs:
+#   - macOS 15+
+#   - Apple Silicon M3 or later (M5 Pro included), or a recent Intel Mac
+#   - vmType: vz  (Virtualization.framework; qemu cannot nest here)
+#
+# Apple Silicon: this instance is aarch64. L2 lab-node-* domains follow that
+# architecture. IPA/ESP come from ironic-iso arm64 assets. See lima/README.md.
 minimumLimaVersion: "1.0.0"
+vmType: vz
+nestedVirtualization: true
 
 images:
   - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
@@ -11,11 +23,22 @@ images:
 cpus: 8
 memory: "16GiB"
 disk: "100GiB"
-nestedVirtualization: true
+
+# Leave Lima's containerd off; lab_prereqs installs Docker inside the VM.
+containerd:
+  system: false
+  user: false
 
 mounts:
   - location: "~"
     writable: true
+
+# Reach Ironic and sushy from the Mac without looking up the lima IP.
+portForwards:
+  - guestPort: 6385
+    hostPort: 6385
+  - guestPort: 8001
+    hostPort: 8001
 
 provision:
   - mode: system
@@ -24,4 +47,4 @@ provision:
       set -eux -o pipefail
       export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y python3
+      apt-get install -y python3 sudo

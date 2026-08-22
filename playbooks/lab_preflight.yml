@@ -18,13 +18,17 @@
       ansible.builtin.assert:
         that:
           - lab_kvm.stat.exists
-        fail_msg: "/dev/kvm is missing inside the lab VM. On Linux enable nested KVM; on macOS use Lima with nestedVirtualization."
+        fail_msg: >-
+          /dev/kvm is missing inside the lab VM. On Linux enable nested KVM.
+          On macOS use lima/lab.yaml (vz + nestedVirtualization) on macOS 15+
+          with M3 or later. See lima/README.md.
 
-    - name: CPU virt flags
+    - name: CPU virt flags (x86)
       ansible.builtin.command: grep -E -m1 '(vmx|svm)' /proc/cpuinfo
       register: lab_cpu_virt
       changed_when: false
       failed_when: lab_cpu_virt.rc != 0
+      when: ansible_architecture in ['x86_64', 'amd64']
 
     - name: Memory
       ansible.builtin.command: awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo

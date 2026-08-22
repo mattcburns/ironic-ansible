@@ -3,3 +3,22 @@
 # fills an existing tray. Eject removes the device from the live domain XML;
 # re-run lab_up --tags libvirt after a failed media cycle if smoke complains.
 lab_node_dual_cd: false
+
+# L2 guests must match the lab VM architecture so nested KVM works.
+# Apple Silicon Lima is aarch64; Linux L0 libvirt VMs are typically x86_64.
+lab_node_arch: "{{ 'aarch64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+lab_node_machine: "{{ 'virt' if lab_node_arch == 'aarch64' else 'q35' }}"
+lab_node_emulator: "{{ '/usr/bin/qemu-system-aarch64' if lab_node_arch == 'aarch64' else '/usr/bin/qemu-system-x86_64' }}"
+# Pin non-secure-boot firmware. Ubuntu q35 autoselection prefers
+# OVMF_CODE.secboot.fd, which hangs with -nodefaults and no VGA, and
+# refuses the unsigned IPA ISO if MS keys are enrolled.
+lab_node_firmware_pairs_by_arch:
+  aarch64:
+    - { code: /usr/share/AAVMF/AAVMF_CODE.fd, vars: /usr/share/AAVMF/AAVMF_VARS.fd }
+  x86_64:
+    - { code: /usr/share/OVMF/OVMF_CODE_4M.fd, vars: /usr/share/OVMF/OVMF_VARS_4M.fd }
+    - { code: /usr/share/OVMF/OVMF_CODE.fd, vars: /usr/share/OVMF/OVMF_VARS.fd }
+    - { code: /usr/share/edk2/ovmf/OVMF_CODE.fd, vars: /usr/share/edk2/ovmf/OVMF_VARS.fd }
+lab_node_firmware_pairs: "{{ lab_node_firmware_pairs_by_arch[lab_node_arch] }}"
+lab_node_firmware_code: "{{ lab_node_firmware_pairs[0].code }}"
+lab_node_firmware_vars: "{{ lab_node_firmware_pairs[0].vars }}"

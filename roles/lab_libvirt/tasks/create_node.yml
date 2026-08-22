@@ -5,6 +5,29 @@
   failed_when: false
   changed_when: false
 
+- name: Read existing node UUID
+  ansible.builtin.command: virsh domuuid {{ node.name }}
+  register: lab_node_existing_uuid
+  changed_when: false
+  when: lab_node_info.rc == 0
+
+- name: Count CD-ROM devices on the existing domain
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    virsh dumpxml --inactive {{ node.name }} | grep -c "device='cdrom'" || true
+  args:
+    executable: /bin/bash
+  register: lab_node_cdrom_count
+  changed_when: false
+  when: lab_node_info.rc == 0
+
+- name: Redefine if a completed deploy ejected the CD-ROM device
+  ansible.builtin.set_fact:
+    lab_node_cdrom_needs_fix: >-
+      {{ lab_node_info.rc == 0
+         and (lab_node_cdrom_count.stdout | default('0') | trim | int)
+             < (2 if (lab_node_dual_cd | default(false) | bool) else 1) }}
+
 - name: Check node disk
   ansible.builtin.stat:
     path: "{{ lab_libvirt_images_dir }}/{{ node.name }}.qcow2"
@@ -29,32 +52,33 @@
     mode: "0644"
   register: lab_node_xml
 
+- name: Decide whether the domain must be redefined
+  ansible.builtin.set_fact:
+    lab_node_needs_redefine: >-
+      {{ lab_node_info.rc != 0
+         or lab_node_xml.changed
+         or (lab_node_cdrom_needs_fix | default(false) | bool) }}
+
+- name: Stop the node before firmware or tray changes
+  ansible.builtin.command:
+    argv: [virsh, destroy, "{{ node.name }}"]
+  when:
+    - lab_node_info.rc == 0
+    - lab_node_needs_redefine | bool
+  failed_when: false
+  changed_when: true
+
+- name: Drop NVRAM so a firmware pin gets a matching varstore
+  ansible.builtin.file:
+    path: "/var/lib/libvirt/qemu/nvram/{{ node.name }}_VARS.fd"
+    state: absent
+  when: lab_node_needs_redefine | bool
+
 - name: Define node from template
   ansible.builtin.command:
     argv: [virsh, define, "/tmp/lab-node-{{ node.name }}.xml"]
-  when: lab_node_info.rc != 0 or lab_node_xml.changed
+  when: lab_node_needs_redefine | bool
   register: lab_node_define
-  changed_when: lab_node_info.rc != 0 or lab_node_xml.changed
-
-- name: Read state before CD-tray refresh
-  ansible.builtin.command: virsh domstate {{ node.name }}
-  register: lab_node_state_pre
-  changed_when: false
-  failed_when: false
-  when: lab_node_xml.changed and lab_node_info.rc == 0
-
-- name: Restart node so a new CD tray is live
-  ansible.builtin.shell: |
-    set -e
-    virsh destroy {{ node.name }} || true
-    virsh start {{ node.name }}
-  args:
-    executable: /bin/bash
-  when:
-    - lab_node_xml.changed
-    - lab_node_info.rc == 0
-    - lab_node_state_pre is defined
-    - "'running' in (lab_node_state_pre.stdout | default(''))"
   changed_when: true
 
 - name: Autostart node
