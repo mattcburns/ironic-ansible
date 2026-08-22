@@ -91,17 +91,18 @@ limactl stop ironic-lab
 limactl delete ironic-lab
 ```
 
-## Architecture notes (Apple Silicon)
+## Architecture notes
 
-L2 `lab-node-*` domains follow the Lima VM architecture (aarch64 on M5 Pro)
-so they can use nested KVM. That is enough for Redfish, enroll, and
-`lab_smoke.yml`.
+L2 `lab-node-*` domains follow the Lima VM architecture (aarch64 on M5 Pro,
+x86_64 on Intel) so they can use nested KVM. `lab_smoke.yml` does a full IPA
+deploy of `lab-node-1` unless you pass `--skip-tags provision`.
 
 IPA and ESP both come from `mattcburns/ironic-iso` `v0.0.30`, which ships
 `amd64` and `arm64` assets. Apple Silicon Lima VMs pull the `arm64` kernel,
-initramfs, and ESP. Flatcar stays disabled in `group_vars/lab.yml`.
-Ubuntu cloud-image arch follows the lab VM (`arm64` on Apple Silicon) for later
-direct-deploy experiments.
+initramfs, and ESP, and pin AAVMF. Intel Mac / Linux x86 labs pin
+non-secure-boot OVMF plus a VGA device so firmware actually boots the ISO.
+Flatcar stays disabled in `group_vars/lab.yml`. Ubuntu cloud-image arch
+follows the lab VM (`arm64` on Apple Silicon).
 
 Ironic and sushy container images may be amd64-only. On aarch64 the playbook
 installs `qemu-user-static` so Docker can run them under emulation (slower
@@ -117,3 +118,4 @@ than native).
 | Port 6385 already allocated | Another Ironic or Lima instance; change `hostPort` in `lima/lab.yaml` and recreate |
 | `vmx\|svm` preflight fail | That check is x86-only; current preflight skips it on aarch64 |
 | IPA downloader 404 | Confirm `ironic_iso_release_tag` is `v0.0.30+` and `ironic_iso_arch` is `amd64` or `arm64` |
+| Node stuck in `wait call-back` | IPA never heartbeated. On x86 (Intel Mac or Linux L0) confirm the guest uses non-secure-boot OVMF, not `OVMF_CODE.secboot.fd`, and that `lab_up` inserted the lab-bridge skip-DNAT rule (Docker DNAT of `:6385` from `192.168.125.0/24` RSTs the callback). `virsh console lab-node-1` should show a serial kernel. Re-run `lab_up` then `lab_smoke.yml`. |

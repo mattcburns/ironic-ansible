@@ -5,18 +5,13 @@
 {% endif %}
   <memory unit="MiB">{{ lab_node_memory_mib }}</memory>
   <vcpu placement="static">{{ lab_node_vcpus }}</vcpu>
-{% if lab_node_arch == 'aarch64' %}
   <os>
-    <type arch="aarch64" machine="{{ lab_node_machine }}">hvm</type>
+    <type arch="{{ lab_node_arch }}" machine="{{ lab_node_machine }}">hvm</type>
     <loader readonly="yes" type="pflash">{{ lab_node_firmware_code }}</loader>
     <nvram template="{{ lab_node_firmware_vars }}"/>
     <boot dev="hd"/>
   </os>
-{% else %}
-  <os>
-    <type arch="x86_64" machine="{{ lab_node_machine }}">hvm</type>
-    <boot dev="hd"/>
-  </os>
+{% if lab_node_arch != 'aarch64' %}
   <features>
     <acpi/>
     <apic/>
@@ -79,5 +74,10 @@
     <rng model="virtio">
       <backend model="random">/dev/urandom</backend>
     </rng>
+{% if lab_node_arch != 'aarch64' %}
+    <video>
+      <model type="vga" vram="16384" heads="1"/>
+    </video>
+{% endif %}
   </devices>
 </domain>

@@ -1,0 +1,80 @@
+---
+# Lab guests sit on a libvirt NAT bridge. Docker publishes Ironic on the
+# host IP (192.168.125.1:6385 / :6180) via DNAT into the container network.
+# From a guest that hairpin RST/ICMP-unreachable's TCP 6385 ("No route to
+# host") even though ping and :6180 may work. Skip DNAT for the lab bridge
+# so docker-proxy accepts the traffic as local INPUT.
+#
+# Libvirt's own LIBVIRT_FWI/FWO isolation also rejects forwarded traffic
+# from the Docker bridge unless we ACCEPT the lab prefix first.
+
+- name: Check for existing lab network forward-in accept
+  ansible.builtin.command:
+    argv: [iptables, -C, FORWARD, -d, "{{ lab_network }}", -j, ACCEPT]
+  register: lab_fw_forward_in_check
+  changed_when: false
+  failed_when: false
+  tags: [network]
+
+- name: Insert lab network forward-in accept ahead of libvirt's isolation rules
+  ansible.builtin.command:
+    argv: [iptables, -I, FORWARD, "1", -d, "{{ lab_network }}", -j, ACCEPT]
+  when: lab_fw_forward_in_check.rc != 0
+  tags: [network]
+
+- name: Check for existing lab network forward-out accept
+  ansible.builtin.command:
+    argv: [iptables, -C, FORWARD, -s, "{{ lab_network }}", -j, ACCEPT]
+  register: lab_fw_forward_out_check
+  changed_when: false
+  failed_when: false
+  tags: [network]
+
+- name: Insert lab network forward-out accept ahead of libvirt's isolation rules
+  ansible.builtin.command:
+    argv: [iptables, -I, FORWARD, "1", -s, "{{ lab_network }}", -j, ACCEPT]
+  when: lab_fw_forward_out_check.rc != 0
+  tags: [network]
+
+- name: Drop any existing lab-bridge skip-DNAT rules
+  ansible.builtin.command:
+    argv:
+      - iptables
+      - -t
+      - nat
+      - -D
+      - PREROUTING
+      - -i
+      - "{{ lab_network_bridge }}"
+      - -m
+      - addrtype
+      - --dst-type
+      - LOCAL
+      - -j
+      - RETURN
+  register: lab_fw_nat_skip_del
+  changed_when: lab_fw_nat_skip_del.rc == 0
+  failed_when: false
+  until: lab_fw_nat_skip_del.rc != 0
+  retries: 5
+  delay: 0
+  tags: [network]
+
+- name: Skip Docker DNAT for traffic arriving on the lab bridge
+  ansible.builtin.command:
+    argv:
+      - iptables
+      - -t
+      - nat
+      - -I
+      - PREROUTING
+      - "1"
+      - -i
+      - "{{ lab_network_bridge }}"
+      - -m
+      - addrtype
+      - --dst-type
+      - LOCAL
+      - -j
+      - RETURN
+  tags: [network]

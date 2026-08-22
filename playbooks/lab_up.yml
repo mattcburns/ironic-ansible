@@ -96,6 +96,19 @@
 
 - ansible.builtin.import_playbook: deploy.yml
 
+# Docker publishes Ironic ports while deploy.yml starts containers, which
+# recreates nat PREROUTING. Re-apply the lab-bridge skip-DNAT afterwards.
+- name: Re-apply lab guest NAT after Docker publishes Ironic ports
+  hosts: lab
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Re-apply lab bridge iptables
+      ansible.builtin.include_role:
+        name: lab_libvirt
+        tasks_from: iptables.yml
+      tags: [network]
+
 - ansible.builtin.import_playbook: enroll.yml
 
 - name: Export the lab OpenStack cloud profile to the repo

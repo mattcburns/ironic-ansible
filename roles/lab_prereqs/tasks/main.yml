@@ -61,13 +61,24 @@
   when: ansible_os_family == "Debian"
   tags: [packages]
 
-- name: Install x86 qemu (Debian / Ubuntu)
+- name: Install x86 qemu and non-secure-boot OVMF (Debian / Ubuntu)
   ansible.builtin.apt:
     name:
       - qemu-system-x86
+      - ovmf
     state: present
   when:
     - ansible_os_family == "Debian"
+    - ansible_architecture not in ["aarch64", "arm64"]
+  tags: [packages]
+
+- name: Install x86 OVMF (Fedora / RHEL)
+  ansible.builtin.dnf:
+    name:
+      - edk2-ovmf
+    state: present
+  when:
+    - ansible_os_family == "RedHat"
     - ansible_architecture not in ["aarch64", "arm64"]
   tags: [packages]
 

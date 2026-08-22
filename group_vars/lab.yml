@@ -45,9 +45,12 @@ ironic_nodes: "{{ lab_bmc_nodes }}"
 ironic_api_host: "{{ lab_network_gateway }}"
 ironic_automated_clean: false
 
-# Cloud image arch follows the lab VM (arm64 on Apple Silicon Lima).
-# Published IPA/ESP artifacts remain x86_64; smoke/enroll do not boot IPA.
+# Cloud image and IPA arch follow the lab VM (arm64 on Apple Silicon Lima).
 ubuntu_lts_image_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'amd64' }}"
+
+# Lab guests are headless. vga=normal hangs the x86 IPA kernel before it
+# brings a NIC up; serial console is how you debug wait-call-back.
+ironic_ipa_kernel_append_params: "nofb nomodeset console=ttyS0,115200n8"
 
 # Lab-only passwords. Do not use a substring of node names (Ansible redacts
 # secret strings inside registered API JSON).

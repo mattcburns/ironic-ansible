@@ -137,6 +137,8 @@ ansible-playbook -i inventory.lab-remote.yml playbooks/lab_smoke.yml
 L0 needs nested KVM so the lab VM can run the sushy guests. Production `inventory.example` never loads `group_vars/lab.yml`.
 `lab_up.yml` imports `playbooks/enroll.yml` so every lab bring-up exercises the same enroll path used for real hardware.
 On Apple Silicon, L2 guests are aarch64 so nested KVM works; IPA/ESP come from the `arm64` assets in `mattcburns/ironic-iso` `v0.0.30`.
+x86_64 lab VMs (Linux L0, or Lima on an Intel Mac) pin non-secure-boot OVMF and a VGA device; Ubuntu's q35 autoselection would otherwise boot `OVMF_CODE.secboot.fd` and never read the IPA ISO.
+`lab_up` also inserts a skip-DNAT rule on the lab bridge after Ironic containers start, because Docker DNAT of `:6385` from `192.168.125.0/24` hairpins and IPA stays in `wait call-back`. `group_vars/lab.yml` sets `ironic_ipa_kernel_append_params` to a serial console; `vga=normal` hangs a headless x86 ramdisk before the NIC is up.
 
 | What | Lab value |
 |---|---|
@@ -445,7 +447,7 @@ ironic_grub_config_path: "EFI/centos/grub.cfg"
 ironic_bootloader: "file:///shared/html/{{ ironic_esp_image_filename }}"
 ironic_bootloader_by_arch: ""
 ironic_file_url_allowed_paths: ""
-ironic_ipa_kernel_append_params: "nofb vga=normal"
+ironic_ipa_kernel_append_params: "nofb vga=normal"  # lab.yml overrides this for headless guests
 ironic_ipa_ssh_public_key: ""  # optional: inject one debug SSH key into IPA
 ironic_enabled_network_interfaces: "noop"
 ironic_default_network_interface: "noop"
